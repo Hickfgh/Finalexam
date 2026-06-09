@@ -1,0 +1,108 @@
+// ...existing code...
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>專案入口總覽 - Finalexam</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1320;--muted:#9aa4b2;--accent:#60a5fa}
+    html,body{height:100%;margin:0;font-family:Inter,Segoe UI,system-ui,Helvetica,Arial;color:#e6eef8;background:linear-gradient(180deg,#071028 0%, var(--bg) 100%)}
+    .container{max-width:1100px;margin:36px auto;padding:24px}
+    header{display:flex;align-items:center;gap:16px}
+    h1{margin:0;font-size:20px}
+    .subtitle{color:var(--muted);font-size:13px}
+    .search{margin-top:18px;display:flex;gap:8px}
+    .search input{flex:1;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);color:inherit}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:20px}
+    .card{background:var(--card);padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+    .card h3{margin:0 0 6px 0;font-size:15px}
+    .card p{margin:0;color:var(--muted);font-size:13px}
+    a.link{display:inline-block;margin-top:10px;color:var(--accent);text-decoration:none;font-weight:600}
+    footer{margin-top:26px;color:var(--muted);font-size:13px;text-align:center}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .btn{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.02);color:var(--muted);font-size:13px;text-decoration:none}
+    .small{font-size:12px;color:var(--muted)}
+    @media (max-width:520px){.container{padding:12px}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Finalexam — 入口總覽</h1>
+        <div class="subtitle">快速存取專案檔案、說明與常用操作</div>
+      </div>
+    </header>
+
+    <div class="search" role="search" aria-label="專案搜尋">
+      <input id="quickSearch" placeholder="搜尋檔案名稱或關鍵字（僅本頁範例）" />
+      <a class="btn" href="#" id="openInEditor">在 VS Code 中開啟資料夾</a>
+    </div>
+
+    <div class="grid" id="cards">
+      <section class="card" id="card-readme">
+        <h3>README / 專案說明</h3>
+        <p>放置專案主說明、安裝與執行指引。</p>
+        <div class="actions">
+          <a class="link" href="README.md">開啟 README.md</a>
+          <a class="btn" href="docs/">文件資料夾</a>
+        </div>
+      </section>
+
+      <section class="card" id="card-src">
+        <h3>原始碼</h3>
+        <p>主要程式碼與模組位置。</p>
+        <div class="actions">
+          <a class="link" href="src/">檢視 src/</a>
+          <a class="btn" href="tests/">單元測試</a>
+        </div>
+      </section>
+
+      <section class="card" id="card-pages">
+        <h3>靜態頁面</h3>
+        <p>範例頁面與入口。</p>
+        <div class="actions">
+          <a class="link" href="index.html">index.html</a>
+          <a class="btn" href="about.html">about.html</a>
+        </div>
+      </section>
+
+      <section class="card" id="card-tools">
+        <h3>工具 / 指令</h3>
+        <p>常用指令與執行方式（Windows）。</p>
+        <div class="actions">
+          <span class="small">啟動開發伺服器：</span>
+          <a class="btn" href="#" id="cmdStart">npm start</a>
+        </div>
+      </section>
+    </div>
+
+    <footer>
+      <div class="small">提示：請依專案實際結構調整連結。若要在 VS Code 中打開資料夾，請在終端執行 <code>code .</code></div>
+    </footer>
+  </div>
+
+  <script>
+    // 簡單的頁內互動（僅示範）
+    document.getElementById('quickSearch').addEventListener('input', function(e){
+      const q = e.target.value.toLowerCase();
+      document.querySelectorAll('#cards .card').forEach(card=>{
+        const txt = (card.innerText||'').toLowerCase();
+        card.style.display = q && !txt.includes(q) ? 'none' : '';
+      });
+    });
+
+    // 這些按鈕在瀏覽器中無法直接啟動本機命令；在 VS Code 或本機終端請執行下列命令：
+    document.getElementById('openInEditor').addEventListener('click', function(e){
+      e.preventDefault();
+      alert('請於專案資料夾在終端執行：code . 以在 VS Code 中開啟。');
+    });
+    document.getElementById('cmdStart').addEventListener('click', function(e){
+      e.preventDefault();
+      alert('請在終端（Windows）輸入：npm install 之後執行 npm start');
+    });
+  </script>
+</body>
+</html>
+// ...existing code...
