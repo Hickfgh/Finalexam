@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Finalexam — 應用程式總覽</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
   <script>
     // optional tailwind theme tweaks (soft pastel tones)
     tailwind.config = {
@@ -30,8 +31,34 @@
     }
   </script>
   <style>
-    /* small helper to keep preview image responsive inside modal */
+    /* Typography and gentle UI tweaks */
+    html,body { font-family: 'Noto Sans TC', system-ui, -apple-system, "Segoe UI", Roboto, 'Helvetica Neue', Arial; }
     .preview-img { max-width:100%; max-height:100%; object-fit:contain; border-radius:8px; }
+
+    /* Card polish */
+    .card { background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(250,250,252,0.85)); border-radius: 18px; }
+    .card { transition: transform .28s cubic-bezier(.2,.9,.2,1), box-shadow .28s ease, border-color .28s ease; }
+    .card:hover { transform: translateY(-8px) scale(1.01); box-shadow: 0 18px 40px rgba(20,18,38,0.18); }
+    .card:focus { outline: none; box-shadow: 0 12px 30px rgba(99,102,241,0.12); transform: translateY(-6px); }
+
+    /* Tag chips */
+    .chip { font-size: 11px; padding: 4px 8px; border-radius: 999px; background: rgba(75, 85, 99, 0.06); color: #334155; border: 1px solid rgba(15,23,42,0.04); }
+
+    /* subtle fade-in for sections */
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-fade-in > * { animation: fadeUp .5s ease both; }
+
+    /* search count small adjustments */
+    #searchCount { font-size: 11px; }
+    /* improved search bar visuals */
+    .search-wrap { position: relative; }
+    .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: rgba(79,70,229,0.9); }
+    #quickSearch { padding-left: 44px; padding-right: 48px; }
+    #clearSearch { right: 10px; top: 50%; transform: translateY(-50%); }
+    #searchCount { right: 46px; left: auto; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.7); padding: 4px 8px; border-radius: 999px; box-shadow: 0 4px 10px rgba(16,24,40,0.04); }
+
+    /* highlight match */
+    mark.match { background: #fffbeb; color: #7c2d12; padding: 0 .12rem; border-radius: 3px; }
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-b from-pastel-50 via-white to-pastel-100 text-gray-800 antialiased">
@@ -42,16 +69,21 @@
           <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none"><path d="M3 7h18M6 11h12M8 15h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
         <div>
-          <h1 class="text-2xl font-semibold text-pastel-800">Finalexam — 應用程式總覽</h1>
-          <p class="text-sm text-pastel-700 mt-1">溫柔唯美的介面：點擊卡片或使用 Enter 檢視與預覽應用程式</p>
+          <h1 class="text-2xl font-semibold text-pastel-800">流光扉頁</h1>
+          <p class="text-sm text-pastel-700 mt-1">每一次敲擊，都是一頁發光的風景：點擊卡片或按下 Enter 預覽，就像在午後的陽光下，輕輕翻開一頁手感溫潤、微微發光的書信。</p>
         </div>
       </div>
     </header>
 
     <div class="flex gap-4 items-center mb-8">
-      <div class="flex-1">
+      <div class="flex-1 search-wrap relative">
         <label for="quickSearch" class="sr-only">搜尋卡片</label>
-        <input id="quickSearch" type="search" placeholder="搜尋：game / utility / digital" class="w-full bg-white/80 backdrop-blur-sm border border-pastel-200 rounded-xl px-4 py-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-pastel-300 transition" />
+        <span class="search-icon">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <input id="quickSearch" type="search" placeholder="搜尋：game utility digital（空格分隔多字）" class="w-full bg-white/90 backdrop-blur-sm border border-pastel-200 rounded-xl px-4 py-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-pastel-300 transition" />
+        <button id="clearSearch" aria-label="清除搜尋" title="清除搜尋" class="absolute text-pastel-700 hover:text-pastel-800">✕</button>
+        <div id="searchCount" class="absolute text-2xs text-pastel-600">全部</div>
       </div>
       <div>
         <button id="openInEditor" class="px-4 py-3 rounded-xl bg-gradient-to-r from-pastel-300 to-pastel-400 text-white shadow-md hover:scale-105 transition">在 VS Code 開啟</button>
@@ -61,57 +93,68 @@
     <main>
       <div id="cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <!-- Card: Digital learning -->
-        <article tabindex="0" role="button" data-link="Digital learning/" class="card group relative rounded-2xl p-6 bg-white/60 backdrop-blur-sm border border-white/60 shadow-lg hover:shadow-2xl transform transition hover:-translate-y-2 focus:outline-none focus:ring-4 focus:ring-pastel-200">
+        <article tabindex="0" role="button" data-link="Digital learning/index.html" data-title="日日時光 | AI 智慧待辦與生活手札" data-desc="不只是時間管理，更是陪伴您輕盈起步、溫柔生活的心靈手札。" data-tags="digital,productivity,notes" class="card group relative rounded-2xl p-6 bg-white/60 backdrop-blur-sm border border-white/60 shadow-lg hover:shadow-2xl transform transition hover:-translate-y-2 focus:outline-none focus:ring-4 focus:ring-pastel-200">
           <div class="flex items-start gap-4">
             <div class="w-14 h-14 rounded-lg bg-gradient-to-br from-pastel-200 to-pastel-300 flex items-center justify-center">
               <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none"><path d="M3 7h18M6 11h12M8 15h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             <div>
-              <h3 class="text-lg font-semibold text-pastel-800">Digital learning</h3>
-              <p class="text-sm text-pastel-700 mt-1">互動教學、練習與教材展示 — 適合課程演示與練習。</p>
+              <h3 class="text-lg font-semibold text-pastel-800">日日時光 | AI 智慧待辦與生活手札</h3>
+              <p class="text-sm text-pastel-700 mt-1">不只是時間管理，更是陪伴您輕盈起步、溫柔生活的心靈手札。</p>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <span class="chip">digital</span>
+                <span class="chip">productivity</span>
+                <span class="chip">notes</span>
+              </div>
               <div class="mt-4 flex items-center gap-3">
-                <span class="text-xs px-3 py-1 rounded-full bg-pastel-100 text-pastel-700">教學</span>
                 <div class="flex-1"></div>
-                <button data-action="preview" class="px-3 py-2 rounded-lg bg-white/70 text-pastel-800 hover:scale-105 transition text-sm">預覽</button>
-                <a href="Digital learning/" target="_blank" rel="noopener" class="ml-2 px-3 py-2 rounded-lg bg-gradient-to-r from-pastel-300 to-pastel-400 text-white text-sm">開啟</a>
+                <a href="Digital learning/index.html" target="_blank" rel="noopener" class="ml-2 px-3 py-2 rounded-lg bg-gradient-to-r from-pastel-300 to-pastel-400 text-white text-sm">開啟</a>
               </div>
             </div>
           </div>
         </article>
 
+
+
         <!-- Card: Game -->
-        <article tabindex="0" role="button" data-link="Game/" class="card group relative rounded-2xl p-6 bg-white/60 backdrop-blur-sm border border-white/60 shadow-lg hover:shadow-2xl transform transition hover:-translate-y-2 focus:outline-none focus:ring-4 focus:ring-pastel-200">
+        <article tabindex="0" role="button" data-link="Game/index.html" data-title="線上密室 | 逃遺落的時空實驗室" data-desc="小型遊戲與互動範例，充滿趣味的練習場域。" data-tags="game,puzzle,fun" class="card group relative rounded-2xl p-6 bg-white/60 backdrop-blur-sm border border-white/60 shadow-lg hover:shadow-2xl transform transition hover:-translate-y-2 focus:outline-none focus:ring-4 focus:ring-pastel-200">
           <div class="flex items-start gap-4">
             <div class="w-14 h-14 rounded-lg bg-gradient-to-br from-pastel-300 to-pastel-400 flex items-center justify-center">
               <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none"><path d="M6 12h12M12 6v12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             <div>
-              <h3 class="text-lg font-semibold text-pastel-800">Game</h3>
+              <h3 class="text-lg font-semibold text-pastel-800">線上密室 | 逃遺落的時空實驗室</h3>
               <p class="text-sm text-pastel-700 mt-1">小型遊戲與互動範例，充滿趣味的練習場域。</p>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <span class="chip">game</span>
+                  <span class="chip">puzzle</span>
+                  <span class="chip">fun</span>
+                </div>
               <div class="mt-4 flex items-center gap-3">
-                <span class="text-xs px-3 py-1 rounded-full bg-pastel-100 text-pastel-700">娛樂</span>
                 <div class="flex-1"></div>
-                <button data-action="preview" class="px-3 py-2 rounded-lg bg-white/70 text-pastel-800 hover:scale-105 transition text-sm">預覽</button>
-                <a href="Game/" target="_blank" rel="noopener" class="ml-2 px-3 py-2 rounded-lg bg-gradient-to-r from-pastel-300 to-pastel-400 text-white text-sm">開啟</a>
+                <a href="Game/index.html" target="_blank" rel="noopener" class="ml-2 px-3 py-2 rounded-lg bg-gradient-to-r from-pastel-300 to-pastel-400 text-white text-sm">開啟</a>
               </div>
             </div>
           </div>
         </article>
 
         <!-- Card: Utility tools -->
-        <article tabindex="0" role="button" data-link="Utility tools/" class="card group relative rounded-2xl p-6 bg-white/60 backdrop-blur-sm border border-white/60 shadow-lg hover:shadow-2xl transform transition hover:-translate-y-2 focus:outline-none focus:ring-4 focus:ring-pastel-200">
+        <article tabindex="0" role="button" data-link="Utility tools/index.html" data-title="星際共鳴 | AI 心理測驗與人格分析平台" data-desc="解鎖你的宇宙定位：一場透視自我的星際心靈漫遊。" data-tags="utility,quiz,ai,personality" class="card group relative rounded-2xl p-6 bg-white/60 backdrop-blur-sm border border-white/60 shadow-lg hover:shadow-2xl transform transition hover:-translate-y-2 focus:outline-none focus:ring-4 focus:ring-pastel-200">
           <div class="flex items-start gap-4">
             <div class="w-14 h-14 rounded-lg bg-gradient-to-br from-pastel-200 to-pastel-300 flex items-center justify-center">
               <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h8M4 17h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             <div>
-              <h3 class="text-lg font-semibold text-pastel-800">Utility tools</h3>
-              <p class="text-sm text-pastel-700 mt-1">格式化、轉換與測試輔助工具集合。</p>
+              <h3 class="text-lg font-semibold text-pastel-800">星際共鳴 | AI 心理測驗與人格分析平台</h3>
+              <p class="text-sm text-pastel-700 mt-1">解鎖你的宇宙定位：一場透視自我的星際心靈漫遊。</p>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <span class="chip">utility</span>
+                  <span class="chip">quiz</span>
+                  <span class="chip">ai</span>
+                </div>
               <div class="mt-4 flex items-center gap-3">
-                <span class="text-xs px-3 py-1 rounded-full bg-pastel-100 text-pastel-700">工具</span>
                 <div class="flex-1"></div>
-                <button data-action="preview" class="px-3 py-2 rounded-lg bg-white/70 text-pastel-800 hover:scale-105 transition text-sm">預覽</button>
-                <a href="Utility tools/" target="_blank" rel="noopener" class="ml-2 px-3 py-2 rounded-lg bg-gradient-to-r from-pastel-300 to-pastel-400 text-white text-sm">開啟</a>
+                <a href="Utility tools/index.html" target="_blank" rel="noopener" class="ml-2 px-3 py-2 rounded-lg bg-gradient-to-r from-pastel-300 to-pastel-400 text-white text-sm">開啟</a>
               </div>
             </div>
           </div>
@@ -124,32 +167,90 @@
     </footer>
   </div>
 
-  <!-- Modal -->
-  <div id="modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40">
-    <div class="w-[min(880px,92%)] bg-white rounded-2xl p-6 shadow-2xl">
-      <div class="flex items-center justify-between mb-4">
-        <h4 id="modalTitle" class="text-lg font-semibold text-pastel-800"></h4>
-        <button id="modalClose" class="text-sm text-pastel-700 bg-pastel-50 px-3 py-1 rounded-lg">關閉</button>
-      </div>
-      <div class="h-[420px] bg-pastel-50 rounded-lg border border-white/60 flex items-center justify-center overflow-hidden">
-        <div id="modalPreview" class="w-full h-full flex items-center justify-center text-pastel-700">載入預覽…</div>
-      </div>
-      <div class="mt-4 flex justify-end gap-3">
-        <a id="modalOpen" class="px-4 py-2 rounded-lg bg-gradient-to-r from-pastel-300 to-pastel-400 text-white" href="#" target="_blank" rel="noopener">在新分頁開啟</a>
-      </div>
-    </div>
-  </div>
+  
 
   <script>
-    // 基本互動：搜尋、焦點、卡片點擊、預覽 modal
+    // 基本互動：改良搜尋（支援多字詞、標籤與欄位匹配）、焦點、卡片點擊、預覽 modal
     const quick = document.getElementById('quickSearch');
-    quick.addEventListener('input', e=>{
-      const q = e.target.value.trim().toLowerCase();
-      document.querySelectorAll('#cards article').forEach(card=>{
-        const txt = (card.innerText||'').toLowerCase();
-        card.style.display = q && !txt.includes(q) ? 'none' : '';
+    const clearBtn = document.getElementById('clearSearch');
+    const countEl = document.getElementById('searchCount');
+
+    const normalize = (s='') => (s||'').toString().toLowerCase();
+
+    function performSearch() {
+      const q = quick.value.trim().toLowerCase();
+      const tokens = q.split(/\s+/).filter(Boolean);
+      const cards = Array.from(document.querySelectorAll('#cards article'));
+      let visible = 0;
+
+      cards.forEach(card => {
+        const title = normalize(card.getAttribute('data-title'));
+        const desc = normalize(card.getAttribute('data-desc'));
+        const tags = normalize(card.getAttribute('data-tags'));
+        const link = normalize(card.getAttribute('data-link'));
+
+        // If no query, show all
+        if (tokens.length === 0) {
+          card.style.display = '';
+          visible++;
+          return;
+        }
+
+        // require ALL tokens to match at least one field (AND across tokens)
+        const matchedAll = tokens.every(tok => {
+          // prefer startsWith for title and tag exact matches
+          if (title.includes(tok) || title.startsWith(tok)) return true;
+          if (desc.includes(tok)) return true;
+          if (tags.split(',').some(t => t.trim().startsWith(tok) || t.trim() === tok)) return true;
+          if (link.includes(tok)) return true;
+          return false;
+        });
+
+        card.style.display = matchedAll ? '' : 'none';
+        if (matchedAll) visible++;
       });
-    });
+
+      countEl.textContent = visible === 0 ? '無結果' : `${visible} 筆`; 
+      // highlight matched tokens in visible cards
+      cards.forEach(card=>{
+        const titleEl = card.querySelector('h3');
+        const descEl = card.querySelector('p');
+        if (card.style.display === 'none') {
+          // restore raw text if hidden
+          if (titleEl && titleEl.dataset.raw) titleEl.innerHTML = titleEl.dataset.raw;
+          if (descEl && descEl.dataset.raw) descEl.innerHTML = descEl.dataset.raw;
+          return;
+        }
+        if (tokens.length === 0) {
+          if (titleEl && titleEl.dataset.raw) titleEl.innerHTML = titleEl.dataset.raw;
+          if (descEl && descEl.dataset.raw) descEl.innerHTML = descEl.dataset.raw;
+          return;
+        }
+        // ensure we have original text stored
+        if (titleEl && !titleEl.dataset.raw) titleEl.dataset.raw = titleEl.innerHTML;
+        if (descEl && !descEl.dataset.raw) descEl.dataset.raw = descEl.innerHTML;
+        // create highlighted HTML
+        const escapedTitle = escapeHtml(titleEl.dataset.raw || '');
+        const escapedDesc = escapeHtml(descEl.dataset.raw || '');
+        titleEl.innerHTML = highlightText(escapedTitle, tokens);
+        descEl.innerHTML = highlightText(escapedDesc, tokens);
+      });
+    }
+
+    function escapeHtml(s){ return s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+    function highlightText(text, tokens){
+      let out = text;
+      tokens.forEach(tok=>{
+        if (!tok) return;
+        const rx = new RegExp('('+escapeRegExp(tok)+')','ig');
+        out = out.replace(rx, '<mark class="match">$1</mark>');
+      });
+      return out;
+    }
+    function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+
+    quick.addEventListener('input', performSearch);
+    clearBtn.addEventListener('click', (e)=>{ quick.value=''; performSearch(); quick.focus(); });
 
     document.getElementById('openInEditor').addEventListener('click', e=>{
       e.preventDefault();
@@ -191,36 +292,18 @@
       card.addEventListener('pointerleave', ()=>{ card.style.transform = '' });
     });
 
-    // modal preview
-    const modal = document.getElementById('modal');
-    const modalTitle = document.getElementById('modalTitle');
-    const modalPreview = document.getElementById('modalPreview');
-    const modalOpen = document.getElementById('modalOpen');
-    const modalClose = document.getElementById('modalClose');
-
-    document.querySelectorAll('[data-action="preview"]').forEach(btn=>{
-      btn.addEventListener('click', e=>{
-        e.stopPropagation();
-        const card = e.target.closest('article');
-        const name = card.querySelector('h3').innerText;
-        const link = card.getAttribute('data-link') || '#';
-        modalTitle.textContent = `預覽：${name}`;
-        modalPreview.textContent = '載入預覽…';
-        modalOpen.href = link;
-        modal.classList.remove('hidden');
-
-        // 嘗試載入 preview.png 或顯示說明
-        const img = new Image();
-        img.className = 'preview-img';
-        img.onload = () => { modalPreview.innerHTML = ''; modalPreview.appendChild(img); };
-        img.onerror = () => { modalPreview.textContent = '無預覽圖，請按「在新分頁開啟」檢視內容。'; };
-        img.src = `${link}preview.png`;
+    // make tag chips clickable to filter by tag
+    document.querySelectorAll('.chip').forEach(chip=>{
+      chip.style.cursor = 'pointer';
+      chip.addEventListener('click', e=>{
+        const tag = chip.textContent.trim();
+        quick.value = tag;
+        performSearch();
+        quick.focus();
       });
     });
 
-    modalClose.addEventListener('click', ()=> modal.classList.add('hidden'));
-    modal.addEventListener('click', e=> { if (e.target === modal) modal.classList.add('hidden'); });
-    document.addEventListener('keydown', e=> { if (e.key === 'Escape') modal.classList.add('hidden'); });
+    
 
     // keyboard navigation with arrows
     let idx = 0;

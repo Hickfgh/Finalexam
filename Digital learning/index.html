@@ -1,0 +1,2139 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日日時光 | AI 智慧待辦與生活手札</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        // 暖心手札大地色系
+                        earth: {
+                            50: '#FAF7F2',   // 溫潤奶油白
+                            100: '#F4F1EA',  // 溫暖亞麻沙
+                            200: '#EAE3D2',  // 暖紙灰
+                            300: '#D5C7AC',  // 麥稈黃
+                            600: '#C87A53',  // 暖心赤陶紅 (主色)
+                            700: '#B2623D',  // 深赤陶
+                            800: '#5F7161',  // 鼠尾草綠 (輔色)
+                            900: '#2D2722',  // 炭木黑 (文字)
+                            950: '#1C1A17',  // 深夜極致炭黑
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['PingFang TC', 'Noto Sans TC', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- 禪意流沙自訂微動態 (符合 RULES) -->
+    <style>
+        @keyframes sand-flow {
+            0% { stroke-dashoffset: 0; }
+            100% { stroke-dashoffset: 8; }
+        }
+        .animate-sand-trickle {
+            animation: sand-flow 0.6s linear infinite;
+        }
+    </style>
+</head>
+<body class="bg-earth-50 dark:bg-earth-950 text-[#2D2722] dark:text-[#EAE3D2] min-h-screen transition-colors duration-500 font-sans antialiased selection:bg-earth-600/20">
+
+    <!-- 載入中遮罩 (暖紙感優雅過渡) -->
+    <div id="loading-overlay" class="fixed inset-0 bg-earth-50/95 dark:bg-earth-950/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center transition-opacity duration-500">
+        <div class="relative w-20 h-20 mb-6">
+            <!-- 溫柔的漣漪呼吸動畫 -->
+            <div class="absolute inset-0 rounded-full bg-earth-600/10 animate-ping"></div>
+            <div class="absolute inset-2 rounded-full border-2 border-dashed border-earth-600/40 animate-spin"></div>
+            <div class="absolute inset-4 rounded-full bg-earth-100 dark:bg-earth-900 flex items-center justify-center">
+                <i data-lucide="feather" class="w-8 h-8 text-earth-600"></i>
+            </div>
+        </div>
+        <h2 id="loading-title" class="text-xl font-bold text-earth-900 dark:text-earth-100 tracking-widest">正在為您鋪開日日手札...</h2>
+        <p class="text-earth-600/60 dark:text-earth-300/60 text-sm mt-2">尋找心靈與效率的黃金平衡</p>
+    </div>
+
+    <!-- 主應用容器 -->
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- 側邊人文手札導覽列 -->
+        <aside class="w-68 bg-[#FFFDF9] dark:bg-[#211E1A] border-r border-earth-200 dark:border-earth-900 flex flex-col justify-between z-20 transition-all duration-300">
+            <div>
+                <!-- Logo & 品牌語 -->
+                <div class="p-8 flex items-center gap-3.5 border-b border-earth-100 dark:border-earth-900">
+                    <div class="p-2.5 bg-earth-600/10 dark:bg-earth-600/20 text-earth-600 rounded-2xl">
+                        <i data-lucide="feather" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-extrabold text-lg tracking-wider text-earth-900 dark:text-earth-100">日日時光</h1>
+                        <p class="text-[10px] text-earth-600 dark:text-earth-300/50 font-semibold tracking-widest uppercase">Daily Rituals</p>
+                    </div>
+                </div>
+                
+                <!-- 使用者卡片 -->
+                <div id="user-profile-section" class="p-4 mx-4 my-5 bg-earth-100/60 dark:bg-earth-900/40 rounded-[1.5rem] border border-earth-200/50 dark:border-earth-800/40">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-earth-600/10 text-earth-600 flex items-center justify-center font-bold">
+                            <i data-lucide="smile" class="w-5 h-5"></i>
+                        </div>
+                        <div class="overflow-hidden">
+                            <p class="text-[10px] text-earth-600/60 dark:text-earth-300/50 font-bold">當前旅客</p>
+                            <p id="user-email-display" class="text-xs font-bold text-earth-900 dark:text-earth-100 truncate">載入中...</p>
+                        </div>
+                    </div>
+                    <div class="mt-2.5 flex justify-end">
+                        <button onclick="toggleAuthModal()" class="text-[11px] flex items-center gap-1 text-earth-600 hover:text-earth-700 dark:hover:text-earth-300 font-bold transition">
+                            <i data-lucide="refresh-cw" class="w-3 h-3"></i> 切換旅客空間
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 手札選單項目 -->
+                <nav class="px-3.5 space-y-1.5">
+                    <button onclick="switchTab('dashboard')" id="nav-dashboard" class="tab-btn w-full flex items-center gap-3.5 px-4.5 py-3.5 rounded-2xl text-sm font-bold transition bg-earth-600 text-white shadow-md shadow-earth-600/10">
+                        <i data-lucide="home" class="w-5 h-5"></i>
+                        手札儀表板
+                    </button>
+                    <button onclick="switchTab('tasks')" id="nav-tasks" class="tab-btn w-full flex items-center gap-3.5 px-4.5 py-3.5 rounded-2xl text-sm font-bold transition text-[#5F554A] dark:text-earth-200 hover:bg-earth-100/50 dark:hover:bg-earth-900/50">
+                        <i data-lucide="heart" class="w-5 h-5"></i>
+                        日日待辦清單
+                    </button>
+                    <button onclick="switchTab('schedule')" id="nav-schedule" class="tab-btn w-full flex items-center gap-3.5 px-4.5 py-3.5 rounded-2xl text-sm font-bold transition text-[#5F554A] dark:text-earth-200 hover:bg-earth-100/50 dark:hover:bg-earth-900/50">
+                        <i data-lucide="book-open" class="w-5 h-5"></i>
+                        AI 時光排程
+                    </button>
+                    <button onclick="switchTab('pomodoro')" id="nav-pomodoro" class="tab-btn w-full flex items-center gap-3.5 px-4.5 py-3.5 rounded-2xl text-sm font-bold transition text-[#5F554A] dark:text-earth-200 hover:bg-earth-100/50 dark:hover:bg-earth-900/50">
+                        <i data-lucide="timer" class="w-5 h-5"></i>
+                        禪意沙漏鐘
+                    </button>
+                    <button onclick="switchTab('ai-coach')" id="nav-ai-coach" class="tab-btn w-full flex items-center gap-3.5 px-4.5 py-3.5 rounded-2xl text-sm font-bold transition text-[#5F554A] dark:text-earth-200 hover:bg-earth-100/50 dark:hover:bg-earth-900/50">
+                        <i data-lucide="compass" class="w-5 h-5"></i>
+                        心靈拖延教練
+                    </button>
+                </nav>
+            </div>
+
+            <!-- 底部人文控制 -->
+            <div class="p-5 border-t border-earth-100 dark:border-earth-900 space-y-3.5">
+                <div class="space-y-2">
+                    <p class="text-[10px] font-bold text-earth-600/60 dark:text-earth-300/60 uppercase tracking-widest flex items-center gap-1.5">
+                        <i data-lucide="music-4" class="w-3.5 h-3.5"></i> 禪意背景配樂
+                    </p>
+                    <div class="flex items-center justify-between gap-2 bg-earth-100/40 dark:bg-earth-900/40 p-2.5 rounded-2xl border border-earth-200/50 dark:border-earth-800/40">
+                        <button id="ambient-play-btn" onclick="toggleAmbientMusic()" class="w-9 h-9 rounded-xl bg-earth-600 hover:bg-earth-700 text-white flex items-center justify-center transition shrink-0 shadow-sm shadow-earth-600/10">
+                            <i data-lucide="music" class="w-4 h-4"></i>
+                        </button>
+                        <div class="flex-1 min-w-0">
+                            <select id="ambient-type-select" onchange="changeAmbientType()" class="w-full bg-transparent border-0 text-xs font-bold text-[#5F554A] dark:text-earth-200 focus:outline-none focus:ring-0 py-0.5 select-none cursor-pointer">
+                                <option value="chimes" class="bg-earth-50 dark:bg-earth-950">風鈴空磬 (Chimes)</option>
+                                <option value="drone" class="bg-earth-50 dark:bg-earth-950">太宇梵音 (Drone)</option>
+                                <option value="rain" class="bg-earth-50 dark:bg-earth-950">安神白噪音 (White Noise)</option>
+                            </select>
+                            <div class="flex items-center gap-1.5 mt-1">
+                                <i data-lucide="volume-2" class="w-3 h-3 text-earth-600/60 dark:text-earth-300/40"></i>
+                                <input id="ambient-volume" type="range" min="0" max="100" value="30" oninput="changeAmbientVolume(this.value)" class="w-full h-1 bg-earth-200 dark:bg-earth-800 rounded-lg appearance-none cursor-pointer accent-earth-600">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 深淺色手札模式切換 -->
+                <button onclick="toggleDarkMode()" class="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-earth-100/50 dark:bg-earth-900/50 hover:bg-earth-100 dark:hover:bg-earth-900 transition text-xs font-bold text-[#5F554A] dark:text-earth-200">
+                    <span class="flex items-center gap-2">
+                        <i data-lucide="sun" class="w-4 h-4 dark:hidden"></i>
+                        <i data-lucide="moon" class="w-4 h-4 hidden dark:block"></i>
+                        切換晝夜時光
+                    </span>
+                    <span class="text-[10px] px-2 py-0.5 bg-white dark:bg-earth-950 rounded-md text-earth-600">切換</span>
+                </button>
+                <div class="text-center">
+                    <p class="text-[9px] text-earth-600/40 dark:text-earth-300/30">靜心專注 · 日日安好</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 主內容顯示區 -->
+        <main class="flex-1 flex flex-col overflow-y-auto bg-earth-50 dark:bg-earth-950 transition-colors duration-300">
+            <!-- 頂部列 (極簡雅緻) -->
+            <header class="h-20 border-b border-earth-200 dark:border-earth-900 px-10 flex items-center justify-between bg-earth-50/80 dark:bg-earth-950/80 backdrop-blur sticky top-0 z-10">
+                <div class="flex items-center gap-3">
+                    <h2 id="header-title" class="text-xl font-extrabold tracking-wider text-earth-900 dark:text-earth-100">手札儀表板</h2>
+                    <span id="sync-badge" class="text-[10px] bg-amber-800/10 dark:bg-amber-800/20 text-amber-800 dark:text-amber-300 font-bold px-3 py-1 rounded-full flex items-center gap-1.5 border border-amber-800/20">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> 漫遊單機手記中
+                    </span>
+                    <!-- 禪意優雅的背景 AI 加載狀態 -->
+                    <span id="ai-loading-badge" class="hidden text-[10px] bg-earth-600/10 text-earth-600 font-bold px-3 py-1 rounded-full flex items-center gap-1.5 border border-earth-600/20 animate-pulse">
+                        <span class="w-1.5 h-1.5 rounded-full bg-earth-600 animate-ping"></span> AI 禪意琢磨中...
+                    </span>
+                </div>
+                <!-- 快捷功能 -->
+                <div class="flex items-center gap-3">
+                    <button onclick="triggerAISync()" class="flex items-center gap-2 px-5 py-2.5 bg-earth-600 hover:bg-earth-700 text-white rounded-2xl text-xs font-extrabold shadow-md shadow-earth-600/20 transition transform active:scale-98">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                        請 AI 教練調配今日時光
+                    </button>
+                    <button onclick="triggerCalendarSync()" class="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-[#211E1A] hover:bg-earth-100 dark:hover:bg-[#2D2722] text-[#5F554A] dark:text-earth-200 border border-earth-200 dark:border-earth-800 rounded-2xl text-xs font-bold transition">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        匯出日常手札
+                    </button>
+                </div>
+            </header>
+
+            <!-- 內容版面 -->
+            <div class="p-10 space-y-10 flex-1 max-w-6xl w-full mx-auto">
+                
+                <!-- TAB 1: 儀表板總覽 -->
+                <section id="tab-dashboard" class="space-y-10">
+                    <!-- 雅緻統計卡片 -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div class="bg-white dark:bg-[#211E1A] p-6 rounded-3xl border border-earth-200 dark:border-earth-900/60 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-earth-600/60 dark:text-earth-300/60 font-bold">今日生活刻度</p>
+                                <h3 id="stat-total-tasks" class="text-3xl font-black text-earth-900 dark:text-earth-100 mt-1">0</h3>
+                            </div>
+                            <div class="p-3.5 bg-earth-100 dark:bg-earth-900 text-earth-600 rounded-2xl">
+                                <i data-lucide="feather" class="w-5 h-5"></i>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-[#211E1A] p-6 rounded-3xl border border-earth-200 dark:border-earth-900/60 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-earth-600/60 dark:text-earth-300/60 font-bold">踏實完成</p>
+                                <h3 id="stat-completed-tasks" class="text-3xl font-black text-earth-800 dark:text-earth-300 mt-1">0</h3>
+                            </div>
+                            <div class="p-3.5 bg-earth-800/10 text-earth-800 rounded-2xl">
+                                <i data-lucide="check-square" class="w-5 h-5"></i>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-[#211E1A] p-6 rounded-3xl border border-earth-200 dark:border-earth-900/60 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-earth-600/60 dark:text-earth-300/60 font-bold">沉浸專注時間</p>
+                                <h3 id="stat-focus-time" class="text-3xl font-black text-earth-900 dark:text-earth-100 mt-1">0 <span class="text-xs font-bold text-earth-600/60">分鐘</span></h3>
+                            </div>
+                            <div class="p-3.5 bg-earth-600/10 text-earth-600 rounded-2xl">
+                                <i data-lucide="hourglass" class="w-5 h-5"></i>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-[#211E1A] p-6 rounded-3xl border border-earth-200 dark:border-earth-900/60 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-earth-600/60 dark:text-earth-300/60 font-bold">今日生活心境</p>
+                                <h3 id="stat-ai-grade" class="text-3xl font-black mt-1 text-earth-600">安好</h3>
+                            </div>
+                            <div class="p-3.5 bg-earth-600/5 text-earth-600 rounded-2xl">
+                                <i data-lucide="compass" class="w-5 h-5"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 圖表區 -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <!-- 完成率圖表 -->
+                        <div class="bg-white dark:bg-[#211E1A] p-8 rounded-3xl border border-earth-200 dark:border-earth-900/60 shadow-sm lg:col-span-2">
+                            <h4 class="font-bold text-sm mb-6 flex items-center gap-2.5 text-earth-900 dark:text-earth-100">
+                                <span class="w-2.5 h-2.5 rounded-full bg-earth-600"></span> 每日生活維度分析
+                            </h4>
+                            <div class="relative h-64">
+                                <canvas id="completionChart"></canvas>
+                            </div>
+                        </div>
+                        <!-- 快速統計環 -->
+                        <div class="bg-white dark:bg-[#211E1A] p-8 rounded-3xl border border-earth-200 dark:border-earth-900/60 shadow-sm flex flex-col justify-between">
+                            <div>
+                                <h4 class="font-bold text-sm mb-6 flex items-center gap-2.5 text-earth-900 dark:text-earth-100">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-earth-800"></span> 今日進度拼圖
+                                </h4>
+                                <div class="relative h-44 flex items-center justify-center">
+                                    <canvas id="progressPieChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-earth-100 dark:border-earth-900 flex justify-between items-center text-[10px] text-earth-600/40 dark:text-earth-300/40">
+                                <span>手札自動潤色</span>
+                                <span id="last-update-time">剛剛</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI 今日建議面板 (轉為溫馨心靈手札對話) -->
+                    <div class="bg-[#FAF0E6] dark:bg-[#2C2420] p-8 rounded-3xl border border-earth-600/10 shadow-sm flex items-start gap-5 relative overflow-hidden">
+                        <!-- 裝飾用葉子 -->
+                        <div class="absolute -right-10 -bottom-10 opacity-10 text-earth-600">
+                            <i data-lucide="leaf" class="w-40 h-40"></i>
+                        </div>
+                        <div class="p-3.5 bg-earth-600 text-white rounded-2xl shadow-md">
+                            <i data-lucide="feather" class="w-6 h-6"></i>
+                        </div>
+                        <div class="space-y-2 flex-1 relative z-10">
+                            <h4 class="font-extrabold text-earth-700 dark:text-earth-200">心靈教練手札快報</h4>
+                            <p id="ai-quick-summary" class="text-sm text-[#5F554A] dark:text-earth-200 leading-relaxed font-medium">
+                                歡迎來到今日的靜心時光。目前您尚未請 AI 教練調配時光，您可以點擊右上方「請 AI 教練調配今日時光」按鈕，AI 將依據您的身心能量，為您梳理無痛、流暢且具有呼吸感的時間日誌。
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB 2: 待辦清單 CRUD -->
+                <section id="tab-tasks" class="hidden space-y-10">
+                    <!-- 新增任務表單 -->
+                    <div class="bg-white dark:bg-[#211E1A] p-8 rounded-3xl border border-earth-200 dark:border-earth-900/60 shadow-sm">
+                        <h4 class="font-extrabold text-base mb-6 flex items-center gap-2 text-earth-900 dark:text-earth-100">
+                            <i data-lucide="plus-circle" class="text-earth-600 w-5 h-5"></i> 提筆寫下今日起步任務
+                        </h4>
+                        <form id="todo-form" onsubmit="handleAddTask(event)" class="grid grid-cols-1 md:grid-cols-12 gap-5">
+                            <div class="md:col-span-4">
+                                <label class="block text-[10px] font-bold text-earth-600/60 dark:text-earth-300/60 mb-2 uppercase tracking-wider">任務名稱</label>
+                                <input type="text" id="task-title" required placeholder="例如：在大自然中散步寫下新創意" class="w-full px-4.5 py-3 rounded-2xl border border-earth-200 dark:border-earth-800 bg-earth-100/30 dark:bg-earth-900/30 focus:outline-none focus:ring-2 focus:ring-earth-600/50 text-sm">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-[10px] font-bold text-earth-600/60 dark:text-earth-300/60 mb-2 uppercase tracking-wider">任務類別</label>
+                                <select id="task-category" class="w-full px-3.5 py-3 rounded-2xl border border-earth-200 dark:border-earth-800 bg-earth-100/30 dark:bg-earth-900/30 focus:outline-none focus:ring-2 focus:ring-earth-600/50 text-sm">
+                                    <option value="工作">工作</option>
+                                    <option value="學習">學習</option>
+                                    <option value="健康">健康</option>
+                                    <option value="生活">生活</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-[10px] font-bold text-earth-600/60 dark:text-earth-300/60 mb-2 uppercase tracking-wider">預估時間 (分鐘)</label>
+                                <input type="number" id="task-est" required min="5" max="480" value="25" class="w-full px-4.5 py-3 rounded-2xl border border-earth-200 dark:border-earth-800 bg-earth-100/30 dark:bg-earth-900/30 focus:outline-none focus:ring-2 focus:ring-earth-600/50 text-sm">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-[10px] font-bold text-earth-600/60 dark:text-earth-300/60 mb-2 uppercase tracking-wider">自訂內心優先級</label>
+                                <select id="task-priority" class="w-full px-3.5 py-3 rounded-2xl border border-earth-200 dark:border-earth-800 bg-earth-100/30 dark:bg-earth-900/30 focus:outline-none focus:ring-2 focus:ring-earth-600/50 text-sm">
+                                    <option value="高">高 (High)</option>
+                                    <option value="中" selected>中 (Medium)</option>
+                                    <option value="低">低 (Low)</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-2 flex items-end">
+                                <button type="submit" class="w-full py-3 bg-earth-600 hover:bg-earth-700 text-white font-extrabold rounded-2xl text-sm transition">
+                                    添入紙張
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- 任務清單顯示 -->
+                    <div class="bg-white dark:bg-[#211E1A] rounded-3xl border border-earth-200 dark:border-earth-900/60 shadow-sm overflow-hidden">
+                        <div class="px-8 py-6 border-b border-earth-100 dark:border-earth-900/80 flex justify-between items-center bg-earth-100/20 dark:bg-earth-900/20">
+                            <h4 class="font-extrabold text-sm flex items-center gap-2.5 text-earth-900 dark:text-earth-100">
+                                <i data-lucide="align-left" class="text-earth-600 w-5 h-5"></i> 墨水留痕 · 日常任務
+                            </h4>
+                            <div class="flex gap-2">
+                                <span class="text-[10px] font-bold px-3 py-1 rounded-full bg-earth-100 dark:bg-earth-900 text-[#5F554A] dark:text-earth-300">
+                                    數據安全保存於本地或雲端
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="divide-y divide-earth-100 dark:divide-earth-900" id="todos-container">
+                            <div class="p-8 text-center text-earth-600/60">
+                                <i data-lucide="loader" class="w-8 h-8 animate-spin mx-auto mb-2 text-earth-600"></i>
+                                正在為您翻開書頁...
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB 3: 今日 AI 行程 -->
+                <section id="tab-schedule" class="hidden space-y-10">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-[#FAF0E6] dark:bg-[#2C2420] p-8 rounded-3xl border border-earth-600/10 gap-6">
+                        <div class="flex items-center gap-4.5">
+                            <div class="p-3.5 bg-earth-800 text-white rounded-2xl shadow-md">
+                                <i data-lucide="calendar" class="w-6 h-6"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-lg text-earth-900 dark:text-earth-100">AI 時光排程手扎</h3>
+                                <p class="text-xs text-[#5F554A] dark:text-earth-300/80 leading-relaxed mt-1">
+                                    拒絕機械式的嚴厲灌輸。由心靈時光導師為您估算注意力波形，排入適度呼吸的沉浸工作流。
+                                </p>
+                            </div>
+                        </div>
+                        <button onclick="triggerAISync()" class="px-6 py-3 bg-earth-800 hover:bg-earth-700 text-white rounded-2xl text-xs font-extrabold shadow-md transition transform active:scale-98">
+                            重新梳理時光
+                        </button>
+                    </div>
+
+                    <!-- 行程軸 Timeline (紙質極簡) -->
+                    <div class="bg-white dark:bg-[#211E1A] p-8 rounded-3xl border border-earth-200 dark:border-earth-900/60 shadow-sm relative">
+                        <div class="absolute left-10 top-8 bottom-8 w-0.5 bg-earth-100 dark:bg-earth-900"></div>
+                        <div class="space-y-10 relative" id="schedule-container">
+                            <div class="pl-12 relative flex items-center justify-center py-12 text-earth-600/60">
+                                <div class="text-center">
+                                    <i data-lucide="book-open" class="w-12 h-12 mx-auto mb-3 text-earth-200"></i>
+                                    <p class="font-bold">尚未譜寫 AI 智慧時光</p>
+                                    <p class="text-xs mt-1">請點擊上方按鈕，讓 AI 教練傾聽您的日常規劃</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB 4: 番茄工作鐘 (MUJI / 侘寂禪意沙漏) -->
+                <section id="tab-pomodoro" class="hidden space-y-10">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <!-- 番茄鐘主體 -->
+                        <div class="bg-white dark:bg-[#211E1A] p-10 rounded-[2rem] border border-earth-200 dark:border-earth-900/60 shadow-sm lg:col-span-2 flex flex-col items-center justify-center min-h-[520px]">
+                            <!-- 目前選中的任務 -->
+                            <div class="text-center mb-8">
+                                <span class="px-3 py-1 bg-earth-600/10 text-earth-600 dark:bg-earth-600/20 rounded-full text-[10px] font-bold tracking-widest uppercase">
+                                    時光流轉 · 靜心
+                                </span>
+                                <h3 id="current-pomo-task-title" class="text-2xl font-extrabold mt-3 text-earth-900 dark:text-earth-100">
+                                    請從右側挑選一段時光開始專注
+                                </h3>
+                                <p id="current-pomo-task-category" class="text-xs text-[#5F554A]/60 dark:text-earth-300/50 mt-1.5">生活留白中</p>
+                            </div>
+
+                            <!-- 倒數圓環 SVG (完美幾何，無旋轉扭曲) -->
+                            <div class="relative w-64 h-64 flex items-center justify-center">
+                                <!-- 背景禪意沙漏線條 -->
+                                <svg class="absolute w-28 h-28 text-earth-600/10 dark:text-earth-300/5 pointer-events-none transition-all duration-300" viewBox="0 0 100 100" fill="none" stroke="currentColor">
+                                    <!-- 外框架 -->
+                                    <path d="M30 18 h40 L65 48 A4 4 0 0 1 65 52 L70 82 H30 L35 52 A4 4 0 0 1 35 48 Z" stroke-width="2.5" stroke-linejoin="round"/>
+                                    <!-- 上方沙子 -->
+                                    <path d="M36 22 h28 L50 46 Z" fill="currentColor" class="opacity-60" />
+                                    <!-- 流沙細線 (帶有微動態) -->
+                                    <line x1="50" y1="46" x2="50" y2="78" stroke-width="2" stroke-dasharray="4,4" class="animate-sand-trickle" />
+                                    <!-- 下方沙堆 -->
+                                    <path d="M34 78 Q50 66 66 78 Z" fill="currentColor" class="opacity-70" />
+                                </svg>
+
+                                <!-- 數學精準不偏角外環 (使用內置 transform 旋轉，防止歪斜) -->
+                                <svg class="w-full h-full" viewBox="0 0 256 256">
+                                    <circle cx="128" cy="128" r="105" stroke-width="5" stroke="currentColor" class="text-earth-100 dark:text-earth-900" fill="transparent"></circle>
+                                    <!-- 採用原生屬性 transform="rotate(-90 128 128)" 精準垂直起步 -->
+                                    <circle id="pomo-progress-ring" cx="128" cy="128" r="105" stroke-width="5" stroke="currentColor" class="text-earth-600 dark:text-earth-600 transition-all duration-300" fill="transparent" stroke-dasharray="659.73" stroke-dashoffset="0" transform="rotate(-90 128 128)"></circle>
+                                </svg>
+                                <!-- 時間顯示 -->
+                                <div class="absolute text-center z-10">
+                                    <span id="pomo-time-display" class="text-5xl font-light tracking-widest text-[#2D2722] dark:text-[#EAE3D2] pl-2">25:00</span>
+                                    <p id="pomo-status-label" class="text-[9px] text-earth-600/80 dark:text-earth-300/80 font-bold mt-2.5 tracking-widest uppercase">無事靜坐</p>
+                                </div>
+                            </div>
+
+                            <!-- 控制按鈕 -->
+                            <div class="flex items-center gap-4.5 mt-10">
+                                <button onclick="togglePomoTimer()" id="pomo-start-btn" class="w-36 py-3.5 bg-earth-600 hover:bg-earth-700 text-white font-extrabold rounded-2xl shadow-md transition transform active:scale-98 flex items-center justify-center gap-2 text-xs">
+                                    <i data-lucide="play" class="w-4 h-4"></i> 開始專注
+                                </button>
+                                <button onclick="resetPomoTimer()" class="w-24 py-3.5 bg-earth-100 dark:bg-earth-900 hover:bg-earth-200 dark:hover:bg-earth-800 text-[#5F554A] dark:text-earth-200 font-extrabold rounded-2xl transition text-xs">
+                                    重置
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 任務快速選取面盤 -->
+                        <div class="bg-white dark:bg-[#211E1A] p-8 rounded-[2rem] border border-earth-200 dark:border-earth-900/60 shadow-sm flex flex-col justify-between">
+                            <div>
+                                <h4 class="font-extrabold text-sm mb-4 flex items-center gap-2 text-earth-900 dark:text-earth-100">
+                                    <i data-lucide="feather" class="text-earth-600 w-5 h-5"></i> 點選專注意圖
+                                </h4>
+                                <p class="text-[11px] text-earth-600/60 dark:text-earth-300/60 mb-5">點擊下方尚未完成的任務，即可直接綁定至番茄鐘計時</p>
+                                <div class="space-y-3 overflow-y-auto max-h-[300px]" id="pomo-task-selector">
+                                    <div class="text-center py-12 text-earth-600/40 text-xs">
+                                        尚無任務。請先至待辦手扎新增。
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="pt-5 border-t border-earth-100 dark:border-earth-900">
+                                <div class="bg-earth-100/40 dark:bg-earth-900/30 p-5 rounded-2xl">
+                                    <h5 class="text-xs font-bold text-earth-600/80 mb-1">心靈小語</h5>
+                                    <p class="text-[11px] text-[#5F554A]/80 dark:text-earth-300/80 leading-relaxed font-medium">工作 25 分鐘，放鬆呼吸 5 分鐘。允許自己偶爾放空，是大腦重獲深層專注的秘密泉源。</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB 5: AI 拖延與習慣分析 (改為暖色調身心教練諮商室) -->
+                <section id="tab-ai-coach" class="hidden space-y-10">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div class="bg-white dark:bg-[#211E1A] p-8 rounded-3xl border border-earth-200 dark:border-earth-900/60 shadow-sm space-y-6">
+                            <h4 class="font-extrabold text-sm flex items-center gap-2 text-earth-900 dark:text-earth-100">
+                                <i data-lucide="coffee" class="text-earth-600 w-5 h-5"></i> 內心阻力評估
+                            </h4>
+                            <div class="p-6 bg-[#FAF0E6] dark:bg-[#2C2420] rounded-2xl border border-earth-600/10 flex gap-4.5">
+                                <div class="p-3 bg-earth-600 text-white rounded-xl h-fit">
+                                    <i data-lucide="compass" class="w-5 h-5"></i>
+                                </div>
+                                <div>
+                                    <h5 class="font-extrabold text-earth-800 dark:text-earth-100 text-sm">什麼事情正悄悄阻礙您前行？</h5>
+                                    <p id="ai-procrastination-risk" class="text-sm text-[#5F554A] dark:text-earth-200 mt-2.5 leading-relaxed font-medium">
+                                        AI 教練正在依據您的任務特徵進行語意與難度 analysis，找出那件可能讓您感到有些「抗拒啟動」的繁重任務。請先使用頂部的「請 AI 教練調配今日時光」。
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-3.5">
+                                <h5 class="text-[10px] font-bold text-earth-600/60 dark:text-earth-300/60 uppercase tracking-wider">溫柔破冰指南</h5>
+                                <div id="ai-overcome-tips" class="text-sm leading-relaxed text-[#5F554A] dark:text-earth-200 space-y-2">
+                                    <p class="italic text-earth-600/40">靜待時光調配...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 智慧工作時段推薦 -->
+                        <div class="bg-white dark:bg-[#211E1A] p-8 rounded-3xl border border-earth-200 dark:border-earth-900/60 shadow-sm space-y-6">
+                            <h4 class="font-extrabold text-sm flex items-center gap-2 text-earth-900 dark:text-earth-100">
+                                <i data-lucide="sunset" class="text-earth-600 w-5 h-5"></i> 生理時鐘與氣候建議
+                            </h4>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-earth-600/60 dark:text-earth-300/60 mb-2 uppercase tracking-wider">您的心靈能量最高峰時段：</label>
+                                    <select id="user-habit-peak" onchange="saveHabitPeak()" class="w-full px-4 py-3 rounded-2xl border border-earth-200 dark:border-earth-800 bg-earth-100/30 dark:bg-earth-900/30 focus:outline-none focus:ring-2 focus:ring-earth-600/50 text-sm">
+                                        <option value="morning">清晨與上午 (06:00 - 12:00) — 清晰的邏輯與深層書寫</option>
+                                        <option value="afternoon" selected>下午時段 (13:00 - 18:00) — 緩步執行與與外界對話</option>
+                                        <option value="night">靜謐深夜 (19:00 - 24:00) — 靈光閃現的創意與自省</option>
+                                    </select>
+                                </div>
+                                <div class="p-6 bg-earth-100/50 dark:bg-earth-900/50 rounded-2xl border border-earth-200/50 dark:border-earth-800/50">
+                                    <h5 class="font-extrabold text-earth-800 dark:text-earth-200 flex items-center gap-1.5 text-xs">
+                                        <i data-lucide="quote" class="w-4 h-4 text-earth-600"></i> AI 依生理時鐘寫下的手扎
+                                    </h5>
+                                    <p id="ai-period-recommendation" class="text-sm text-[#5F554A] dark:text-earth-200 mt-3 leading-relaxed font-medium">
+                                        當您改變您今天的生理狀態，或是呼叫 AI 教練重擬行程時，我們將為您在此寫下一頁富有人情味的晨間儀式或夜間收尾配方。
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- 彈出視窗 1: 使用者登入/切換 -->
+    <div id="auth-modal" class="fixed inset-0 bg-[#1C1A17]/60 backdrop-blur-sm z-40 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#211E1A] w-full max-w-md rounded-[2rem] border border-earth-200 dark:border-earth-900 shadow-2xl p-8 space-y-6 transform transition-all scale-100">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="key" class="text-earth-600 w-5 h-5"></i>
+                    <h3 class="font-extrabold text-lg text-earth-900 dark:text-earth-100">開啟您的專屬手扎</h3>
+                </div>
+                <button onclick="toggleAuthModal()" class="p-1.5 rounded-xl hover:bg-earth-100 dark:hover:bg-earth-900 transition text-[#5F554A]">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <p class="text-xs text-[#5F554A]/80 dark:text-earth-300/80 leading-relaxed font-medium">
+                日日時光將您的每一次專注與生活筆記珍藏於安全的雲端。只要輸入您的私人鑰匙，就能跨設備同步所有心靈足跡。
+            </p>
+
+            <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-earth-600/60 dark:text-earth-300/60 mb-1.5">信箱地址</label>
+                    <input type="email" id="auth-email" required placeholder="your.name@ritual.com" class="w-full px-4.5 py-3 rounded-2xl border border-earth-200 dark:border-earth-800 bg-earth-100/30 dark:bg-earth-900/30 focus:outline-none focus:ring-2 focus:ring-earth-600/50 text-sm">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-earth-600/60 dark:text-earth-300/60 mb-1.5">通關暗號</label>
+                    <input type="password" id="auth-password" required placeholder="••••••••" class="w-full px-4.5 py-3 rounded-2xl border border-earth-200 dark:border-earth-800 bg-earth-100/30 dark:bg-earth-900/30 focus:outline-none focus:ring-2 focus:ring-earth-600/50 text-sm">
+                </div>
+                <button type="submit" class="w-full py-3.5 bg-earth-600 hover:bg-earth-700 text-white font-extrabold rounded-2xl transition text-sm flex items-center justify-center gap-2">
+                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                    進入或開闢新手筆
+                </button>
+            </form>
+            <div class="text-center">
+                <button onclick="loginAnonymouslyClick()" class="text-xs text-earth-600 hover:text-earth-700 transition underline font-semibold">
+                    繼續使用匿名手扎漫遊
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 彈出視窗 2: Google Calendar 雲端同步模擬視窗 -->
+    <div id="calendar-sync-modal" class="fixed inset-0 bg-[#1C1A17]/60 backdrop-blur-sm z-40 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#211E1A] w-full max-w-md rounded-[2.5rem] border border-earth-200 dark:border-earth-900 shadow-2xl p-10 space-y-6 text-center">
+            <div id="calendar-sync-loader" class="space-y-5">
+                <div class="relative w-20 h-20 mx-auto flex items-center justify-center">
+                    <div class="absolute inset-0 border-2 border-earth-100 dark:border-earth-900 rounded-full"></div>
+                    <div class="absolute inset-0 border-2 border-earth-600 border-t-transparent rounded-full animate-spin"></div>
+                    <i data-lucide="heart" class="w-8 h-8 text-earth-600 animate-pulse"></i>
+                </div>
+                <h3 class="font-extrabold text-base text-earth-900 dark:text-earth-100">正在雕刻標準時卡</h3>
+                <p class="text-xs text-[#5F554A]/80 dark:text-earth-300/80 leading-relaxed font-medium">我們正在將您的今日清單梳理為國際 RFC 規格的日誌串流，準備進行手札匯出...</p>
+            </div>
+
+            <div id="calendar-sync-success" class="space-y-5 hidden">
+                <div class="w-16 h-16 bg-earth-600/10 text-earth-600 rounded-full flex items-center justify-center mx-auto text-3xl">
+                    <i data-lucide="check" class="w-8 h-8"></i>
+                </div>
+                <h3 class="font-extrabold text-base text-earth-900 dark:text-earth-100">手扎已準備就緒</h3>
+                <p class="text-xs text-[#5F554A]/80 dark:text-earth-300/80 leading-relaxed font-medium">
+                    已順利生成屬於您的 <strong class="text-earth-600">.ics 標準日曆檔案</strong>。您可以輕鬆一鍵下載並匯入您的 Google 行事曆、手機 iOS 行事曆等軟體中。
+                </p>
+                <div class="flex gap-2 justify-center pt-2">
+                    <button onclick="downloadICSFile()" class="px-5 py-3 bg-earth-600 hover:bg-earth-700 text-white font-extrabold rounded-2xl text-xs transition flex items-center gap-1.5 shadow-md shadow-earth-600/10">
+                        <i data-lucide="download" class="w-4 h-4"></i> 下載 iCal 日記
+                    </button>
+                    <button onclick="closeCalendarModal()" class="px-4 py-3 bg-earth-100 dark:bg-earth-900 hover:bg-earth-200 dark:hover:bg-earth-800 rounded-2xl text-xs font-bold transition text-[#5F554A] dark:text-earth-200">
+                        收起手記
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 彈出視窗 3: 禪意確認彈出視窗 (用以替換被沙盒阻擋的 confirm) -->
+    <div id="confirm-modal" class="fixed inset-0 bg-[#1C1A17]/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#211E1A] w-full max-w-sm rounded-[2rem] border border-earth-200 dark:border-earth-900 shadow-2xl p-7 text-center space-y-4">
+            <div class="w-12 h-12 bg-earth-600/10 text-earth-600 rounded-full flex items-center justify-center mx-auto">
+                <i data-lucide="help-circle" class="w-6 h-6"></i>
+            </div>
+            <h3 class="font-bold text-base text-earth-900 dark:text-earth-100">確定撕去此頁嗎？</h3>
+            <p id="confirm-modal-text" class="text-xs text-[#5F554A]/80 dark:text-earth-300/80 leading-relaxed">
+                此動作將永久抹去這筆日常印記，無法復原。
+            </p>
+            <div class="flex gap-3 pt-2">
+                <button id="confirm-yes-btn" class="flex-1 py-2.5 bg-earth-600 hover:bg-earth-700 text-white font-extrabold rounded-xl text-xs transition">
+                    確認抹去
+                </button>
+                <button onclick="closeConfirmModal()" class="flex-1 py-2.5 bg-earth-100 dark:bg-earth-900 hover:bg-earth-200 dark:hover:bg-earth-800 text-[#5F554A] dark:text-earth-200 font-bold rounded-xl text-xs transition">
+                    留步
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK 與 雙軌適配加載邏輯 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // 偵測與初始化 Firebase (如果偵測不到密鑰，自動無縫切換至單機模式)
+        let db = null;
+        let auth = null;
+        let appId = 'default-app-id';
+        let isFirebaseActive = false;
+        let currentUser = null;
+        let unsubscribeTodos = null;
+
+        const checkAndInitFirebase = async () => {
+            try {
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                    const config = JSON.parse(__firebase_config);
+                    if (config && config.apiKey) {
+                        const app = initializeApp(config);
+                        auth = getAuth(app);
+                        db = getFirestore(app);
+                        appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                        isFirebaseActive = true;
+                        window.isFirebaseActive = true;
+
+                        // 掛載至 window
+                        window.db = db;
+                        window.auth = auth;
+                        window.appId = appId;
+                        window.collection = collection;
+                        window.doc = doc;
+                        window.setDoc = setDoc;
+                        window.addDoc = addDoc;
+                        window.updateDoc = updateDoc;
+                        window.deleteDoc = deleteDoc;
+                        window.query = query;
+                        window.onSnapshot = onSnapshot;
+
+                        // 設定 Auth 監聽器
+                        setupAuthListener();
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn("無法初始化雲端數據，切換為本地安全單機手記：", e);
+            }
+            
+            // 降級為 Local 單機模式
+            setupLocalMode();
+        };
+
+        // 雲端 Auth 監聽
+        const setupAuthListener = () => {
+            onAuthStateChanged(auth, async (user) => {
+                currentUser = user;
+                window.currentUser = user;
+                
+                if (user) {
+                    document.getElementById('user-email-display').textContent = user.isAnonymous ? "無事漫遊旅客" : user.email;
+                    document.getElementById('sync-badge').className = "text-[10px] bg-earth-800/10 dark:bg-earth-800/20 text-earth-800 dark:text-earth-300 font-bold px-3 py-1 rounded-full flex items-center gap-1.5 border border-earth-800/20";
+                    document.getElementById('sync-badge').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-earth-800 animate-pulse"></span> 雲端墨水已同步`;
+                    
+                    hideLoadingOverlay();
+                    setupFirestoreSync(user.uid);
+                } else {
+                    // 自動進行匿名認證
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (error) {
+                        setupLocalMode();
+                    }
+                }
+            });
+        };
+
+        // 即時同步雲端待辦
+        function setupFirestoreSync(userId) {
+            if (unsubscribeTodos) {
+                unsubscribeTodos();
+            }
+
+            const collectionRef = collection(db, 'artifacts', appId, 'users', userId, 'todos');
+            
+            unsubscribeTodos = onSnapshot(collectionRef, (snapshot) => {
+                const fetchedTodos = [];
+                snapshot.forEach((doc) => {
+                    fetchedTodos.push({ id: doc.id, ...doc.data() });
+                });
+                
+                window.todos = fetchedTodos;
+                
+                if (fetchedTodos.length === 0) {
+                    insertInitialDummyData(userId);
+                    return;
+                }
+
+                refreshUI();
+            }, (error) => {
+                console.error("即時同步錯誤，已切換至單機快取保護：", error);
+                setupLocalMode();
+            });
+        }
+
+        async function insertInitialDummyData(userId) {
+            const dummyTasks = [
+                { title: "探索「日日時光」的優雅手記操作", category: "學習", estTime: 25, completed: false, priority: "高", createdAt: Date.now() },
+                { title: "進行 1 次禪意番茄工作鐘沉浸", category: "工作", estTime: 25, completed: false, priority: "高", createdAt: Date.now() },
+                { title: "到戶外散步吸氧、舒緩筋骨", category: "健康", estTime: 15, completed: true, priority: "低", createdAt: Date.now() },
+                { title: "為雜亂的生活桌面進行微整理", category: "生活", estTime: 30, completed: false, priority: "中", createdAt: Date.now() }
+            ];
+
+            for (const task of dummyTasks) {
+                const docRef = collection(db, 'artifacts', appId, 'users', userId, 'todos');
+                await addDoc(docRef, task);
+            }
+        }
+
+        // 單機極簡模式初始化 (單次體驗 state 零阻滯)
+        function setupLocalMode() {
+            window.isFirebaseActive = false;
+            window.currentUser = { uid: 'local-session', isAnonymous: true };
+            document.getElementById('user-email-display').textContent = "單機散客手帳";
+            document.getElementById('sync-badge').className = "text-[10px] bg-amber-800/10 dark:bg-amber-800/20 text-amber-800 dark:text-amber-300 font-bold px-3 py-1 rounded-full flex items-center gap-1.5 border border-amber-800/20";
+            document.getElementById('sync-badge').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> 單機靜心模式`;
+            
+            // 使用內建靜態示範數據起步
+            window.todos = [
+                { id: '1', title: "在心靈手記中探索「日日時光」的操作", category: "學習", estTime: 25, completed: false, priority: "高", createdAt: Date.now() - 4000 },
+                { id: '2', title: "進行 1 次禪意番茄工作鐘沉浸", category: "工作", estTime: 25, completed: false, priority: "高", createdAt: Date.now() - 3000 },
+                { id: '3', title: "到戶外漫步、呼吸、舒展筋骨", category: "健康", estTime: 15, completed: true, priority: "低", createdAt: Date.now() - 2000 },
+                { id: '4', title: "為雜亂的手作桌進行無痛的微清理", category: "生活", estTime: 30, completed: false, priority: "中", createdAt: Date.now() - 1000 }
+            ];
+
+            hideLoadingOverlay();
+            refreshUI();
+        }
+
+        // 登入功能 (非匿名帳戶)
+        window.handleAuthSubmit = async (e) => {
+            e.preventDefault();
+            if (!isFirebaseActive) {
+                showUINotification("目前處於單機手帳模式，無法建立外部帳戶。若要雲端同步請檢視系統設定。", "error");
+                toggleAuthModal();
+                return;
+            }
+            
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            showLoadingOverlay();
+
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                showUINotification("歡迎歸來，您的手記已為您翻開。", "success");
+                toggleAuthModal();
+            } catch (error) {
+                if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+                    try {
+                        await createUserWithEmailAndPassword(auth, email, password);
+                        showUINotification("恭喜！已開闢全新的心靈手札空間。", "success");
+                        toggleAuthModal();
+                    } catch (regError) {
+                        showUINotification("密碼需要最少 6 個字元。", "error");
+                    }
+                } else {
+                    showUINotification("登入失敗，請檢查暗號與信箱。", "error");
+                }
+            }
+            hideLoadingOverlay();
+        };
+
+        window.loginAnonymouslyClick = async () => {
+            showLoadingOverlay();
+            if (isFirebaseActive) {
+                try {
+                    await signInAnonymously(auth);
+                    showUINotification("已啟用無痕手扎，數據在雲端受保護。", "success");
+                } catch (e) {
+                    setupLocalMode();
+                }
+            } else {
+                setupLocalMode();
+                showUINotification("已啟用單機手記，輕鬆記錄生活。", "success");
+            }
+            toggleAuthModal();
+            hideLoadingOverlay();
+        };
+
+        // 執行加載
+        checkAndInitFirebase();
+
+        // 防止極致突發卡死：如果 1.5 秒內都沒有關閉載入框，強制關閉並採用 Local Mode
+        setTimeout(() => {
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay && !overlay.classList.contains('opacity-0')) {
+                console.log("安全啟動：強制解鎖載入畫面");
+                setupLocalMode();
+            }
+        }, 1500);
+    </script>
+
+    <!-- 核心功能與美學調整指令 JavaScript -->
+    <script>
+        let currentTab = 'dashboard';
+        let todos = [];
+        let aiPlanData = null;
+        let selectedPomoTask = null;
+        
+        let pomoInterval = null;
+        let pomoSecondsLeft = 25 * 60;
+        let isPomoRunning = false;
+        let isBreakMode = false;
+        let selectedPeakPeriod = 'afternoon';
+        let pendingDeleteId = null;
+
+        let audioCtx = null;
+        let masterGain = null;
+        let isPlayingAmbient = false;
+        let ambientType = 'chimes';
+        let chimeInterval = null;
+        let droneOscillators = [];
+        let rainSource = null;
+        let rainGain = null;
+
+        // 刷新所有 UI 面板
+        function refreshUI() {
+            renderTodos();
+            renderPomoTaskSelector();
+            updateDashboardChartsAndStats();
+            renderScheduleList();
+            updateAIComponents();
+        }
+
+        // 溫和禪意的 Web Audio API 音效 (雙音節自然木魚/頌缽聲)
+        function playSoundNotification(type) {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioContext();
+                
+                if (type === 'success') {
+                    // 模擬悠揚的銅缽聲（帶有舒緩的衰減）
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, ctx.currentTime); // A4 溫和頻率
+                    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                    osc.start();
+                    
+                    // 泛音列
+                    const osc2 = ctx.createOscillator();
+                    const gain2 = ctx.createGain();
+                    osc2.connect(gain2);
+                    gain2.connect(ctx.destination);
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(880, ctx.currentTime);
+                    gain2.gain.setValueAtTime(0.03, ctx.currentTime);
+                    osc2.start();
+
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+                    gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+                    
+                    osc.stop(ctx.currentTime + 1.2);
+                    osc2.stop(ctx.currentTime + 1.2);
+                } else if (type === 'tick') {
+                    // 極輕柔的水滴滴答聲
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(1000, ctx.currentTime);
+                    gain.gain.setValueAtTime(0.01, ctx.currentTime);
+                    osc.start();
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+                    osc.stop(ctx.currentTime + 0.08);
+                }
+            } catch (e) {
+                console.log("禪音播放受瀏覽器安全策略阻擋");
+            }
+        }
+
+        function switchTab(tabId) {
+            currentTab = tabId;
+            document.querySelectorAll('section').forEach(sec => sec.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = "tab-btn w-full flex items-center gap-3.5 px-4.5 py-3.5 rounded-2xl text-sm font-bold transition text-[#5F554A] dark:text-earth-200 hover:bg-earth-100/50 dark:hover:bg-earth-900/50";
+            });
+            
+            const activeBtn = document.getElementById(`nav-${tabId}`);
+            activeBtn.className = "tab-btn w-full flex items-center gap-3.5 px-4.5 py-3.5 rounded-2xl text-sm font-bold transition bg-earth-600 text-white shadow-md shadow-earth-600/10";
+
+            const titleMap = {
+                'dashboard': '手札儀表板',
+                'tasks': '日日待辦清單',
+                'schedule': 'AI 時光排程',
+                'pomodoro': '禪意沙漏鐘',
+                'ai-coach': '心靈拖延教練'
+            };
+            document.getElementById('header-title').textContent = titleMap[tabId];
+            
+            if (tabId === 'dashboard') {
+                updateDashboardChartsAndStats();
+            }
+        }
+
+        // 新增任務 (相容雙軌)
+        async function handleAddTask(event) {
+            event.preventDefault();
+            const user = window.currentUser;
+            if (!user) {
+                showUINotification("請靜候手記初始化...", "error");
+                return;
+            }
+
+            const title = document.getElementById('task-title').value.trim();
+            const category = document.getElementById('task-category').value;
+            const estTime = parseInt(document.getElementById('task-est').value) || 25;
+            const priority = document.getElementById('task-priority').value;
+
+            if (!title) return;
+
+            if (window.isFirebaseActive) {
+                try {
+                    const colRef = window.collection(window.db, 'artifacts', window.appId, 'users', user.uid, 'todos');
+                    await window.addDoc(colRef, {
+                        title: title,
+                        category: category,
+                        estTime: estTime,
+                        priority: priority,
+                        completed: false,
+                        createdAt: Date.now()
+                    });
+                    document.getElementById('todo-form').reset();
+                    showUINotification("新的生活志向已錄入雲端。", "success");
+                } catch (error) {
+                    showUINotification("新增失敗：" + error.message, "error");
+                }
+            } else {
+                // 單機手動寫入
+                const localTask = {
+                    id: 'local-' + Date.now(),
+                    title,
+                    category,
+                    estTime,
+                    priority,
+                    completed: false,
+                    createdAt: Date.now()
+                };
+                window.todos.push(localTask);
+                document.getElementById('todo-form').reset();
+                showUINotification("已將任務記錄於本地手帳。", "success");
+                refreshUI();
+            }
+        }
+
+        // 切換任務完成狀態 (相容雙軌)
+        async function toggleTaskComplete(id, currentStatus) {
+            if (window.isFirebaseActive && window.currentUser) {
+                try {
+                    const docRef = window.doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'todos', id);
+                    await window.updateDoc(docRef, {
+                        completed: !currentStatus
+                    });
+                    showUINotification(currentStatus ? "標記為未完成，慢慢來。" : "一筆日常已舒心地劃去！", "success");
+                } catch (error) {
+                    showUINotification("修改任務狀態失敗：" + error.message, "error");
+                }
+            } else {
+                const task = window.todos.find(t => t.id === id);
+                if (task) {
+                    task.completed = !currentStatus;
+                    showUINotification(currentStatus ? "標記為未完成，慢慢來。" : "一筆日常已劃去！", "success");
+                    refreshUI();
+                }
+            }
+        }
+
+        // 觸發自製確認 Modal 刪除任務 (避開 iframe 被阻擋 confirm)
+        window.deleteTask = (id) => {
+            pendingDeleteId = id;
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        };
+
+        window.closeConfirmModal = () => {
+            document.getElementById('confirm-modal').classList.add('hidden');
+            pendingDeleteId = null;
+        };
+
+        // 按下自製 Modal 的確認鈕
+        document.getElementById('confirm-yes-btn').addEventListener('click', async () => {
+            if (!pendingDeleteId) return;
+            const id = pendingDeleteId;
+            closeConfirmModal();
+
+            if (window.isFirebaseActive && window.currentUser) {
+                try {
+                    const docRef = window.doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'todos', id);
+                    await window.deleteDoc(docRef);
+                    showUINotification("任務已被安靜抹去。", "success");
+                } catch (error) {
+                    showUINotification("刪除失敗：" + error.message, "error");
+                }
+            } else {
+                window.todos = window.todos.filter(t => t.id !== id);
+                showUINotification("任務已從本地手記抹去。", "success");
+                refreshUI();
+            }
+        });
+
+        // 溫潤手帳風格 Tasks 渲染
+        function renderTodos() {
+            const container = document.getElementById('todos-container');
+            if (!container) return;
+
+            const list = window.todos || [];
+            if (list.length === 0) {
+                container.innerHTML = `
+                    <div class="p-16 text-center text-earth-600/40">
+                        <i data-lucide="compass" class="w-12 h-12 mx-auto mb-3 text-earth-200"></i>
+                        <p class="font-bold">今日生活尚處於留白</p>
+                        <p class="text-xs text-earth-600/60 mt-1">在大腦被瑣碎填滿前，先隨手寫下一點微小願望吧。</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            const sorted = [...list].sort((a, b) => {
+                if (a.completed === b.completed) {
+                    return b.createdAt - a.createdAt;
+                }
+                return a.completed ? 1 : -1;
+            });
+
+            container.innerHTML = sorted.map(item => {
+                const priorityColors = {
+                    '高': 'bg-earth-600/10 text-earth-600 dark:bg-earth-600/20',
+                    '中': 'bg-earth-800/10 text-earth-800 dark:bg-earth-800/20',
+                    '低': 'bg-earth-200/50 text-[#5F554A] dark:bg-earth-900'
+                };
+                const pColor = priorityColors[item.priority] || 'bg-earth-100 text-earth-600';
+
+                const aiBadge = item.aiPriority ? `
+                    <span class="text-[10px] px-2.5 py-1 bg-[#FAF0E6] dark:bg-[#322720] text-earth-600 rounded-full font-bold flex items-center gap-1 border border-earth-600/10">
+                        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> 教練首推：${item.aiPriority}
+                    </span>
+                ` : '';
+
+                const riskBadge = item.procrastinationRisk === '高' ? `
+                    <span class="text-[10px] px-2.5 py-1 bg-red-100 text-red-600 dark:bg-red-950/30 dark:text-red-400 rounded-full font-extrabold flex items-center gap-1 animate-pulse">
+                        <i data-lucide="heart" class="w-3 h-3"></i> 易拖延 (需溫柔相待)
+                    </span>
+                ` : '';
+
+                return `
+                    <div class="p-6 flex items-center justify-between hover:bg-earth-100/30 dark:hover:bg-earth-900/10 transition group">
+                        <div class="flex items-center gap-5 flex-1">
+                            <!-- 侘寂溫和勾選框 -->
+                            <button onclick="toggleTaskComplete('${item.id}', ${item.completed})" class="w-6 h-6 rounded-lg border-2 flex items-center justify-center transition shrink-0 ${item.completed ? 'bg-earth-800 border-earth-800 text-white' : 'border-earth-300 dark:border-earth-800 hover:border-earth-600'}">
+                                ${item.completed ? '<i data-lucide="check" class="w-4 h-4"></i>' : ''}
+                            </button>
+                            <div class="space-y-1.5">
+                                <h5 class="font-bold text-sm leading-snug ${item.completed ? 'line-through text-earth-600/50 dark:text-earth-300/30' : 'text-[#2D2722] dark:text-[#EAE3D2]'}">
+                                    ${escapeHTML(item.title)}
+                                </h5>
+                                <div class="flex flex-wrap items-center gap-2.5 pt-0.5">
+                                    <span class="text-[10px] px-2 py-0.5 bg-earth-100 dark:bg-earth-900 text-earth-600 rounded-full font-semibold">
+                                        ${escapeHTML(item.category)}
+                                    </span>
+                                    <span class="text-[10px] px-2 py-0.5 ${pColor} rounded-full font-extrabold">
+                                        心設優先：${item.priority}
+                                    </span>
+                                    <span class="text-[10px] text-earth-600/60 dark:text-earth-300/50 font-bold flex items-center gap-1">
+                                        <i data-lucide="clock" class="w-3 h-3"></i> ${item.estTime}m
+                                    </span>
+                                    ${aiBadge}
+                                    ${riskBadge}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-2 shrink-0 opacity-100 lg:opacity-0 group-hover:opacity-100 transition duration-200">
+                            <button onclick="selectTaskForPomo('${item.id}')" title="綁定沙漏鐘" class="p-2 rounded-xl text-earth-600 hover:bg-earth-600/10 transition">
+                                <i data-lucide="timer" class="w-4.5 h-4.5"></i>
+                            </button>
+                            <button onclick="deleteTask('${item.id}')" title="撕去這頁" class="p-2 rounded-xl text-earth-600/40 hover:text-red-500 hover:bg-red-500/10 transition">
+                                <i data-lucide="trash-2" class="w-4.5 h-4.5"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            lucide.createIcons();
+        }
+
+        function renderPomoTaskSelector() {
+            const container = document.getElementById('pomo-task-selector');
+            if (!container) return;
+
+            const list = window.todos || [];
+            const uncompleted = list.filter(t => !t.completed);
+
+            if (uncompleted.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-earth-600/40 text-xs">
+                        <i data-lucide="heart" class="w-8 h-8 mx-auto mb-2 text-earth-600"></i>
+                        今日時光已圓滿無憾。
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = uncompleted.map(item => {
+                const isSelected = selectedPomoTask && selectedPomoTask.id === item.id;
+                return `
+                    <button onclick="selectTaskForPomo('${item.id}')" class="w-full text-left p-4 rounded-2xl border transition flex items-center justify-between ${isSelected ? 'border-earth-600 bg-earth-600/5 text-earth-700 dark:text-earth-200' : 'border-earth-200 dark:border-earth-800 hover:bg-earth-100/30 dark:hover:bg-earth-900/10'}">
+                        <div class="flex-1 overflow-hidden pr-2">
+                            <span class="text-[9px] uppercase font-bold text-earth-600 block tracking-widest">${escapeHTML(item.category)}</span>
+                            <span class="font-bold text-xs block truncate mt-0.5 text-earth-900 dark:text-earth-100">${escapeHTML(item.title)}</span>
+                        </div>
+                        <div class="flex items-center gap-1 text-[10px] font-bold text-earth-600/60 shrink-0">
+                            <i data-lucide="clock" class="w-3 h-3"></i> ${item.estTime}m
+                        </div>
+                    </button>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        function selectTaskForPomo(taskId) {
+            const task = (window.todos || []).find(t => t.id === taskId);
+            if (!task) return;
+
+            selectedPomoTask = task;
+            document.getElementById('current-pomo-task-title').textContent = task.title;
+            document.getElementById('current-pomo-task-category').textContent = `${task.category} — 禪坐預期 ${task.estTime} 分鐘`;
+            
+            pomoSecondsLeft = 25 * 60;
+            updatePomoDisplay();
+            
+            showUINotification(`沙漏已與任務結緣：${task.title}`, "success");
+            renderPomoTaskSelector();
+            
+            if (currentTab !== 'pomodoro') {
+                switchTab('pomodoro');
+            }
+        }
+
+        function updatePomoDisplay() {
+            const mins = Math.floor(pomoSecondsLeft / 60);
+            const secs = pomoSecondsLeft % 60;
+            const displayStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            document.getElementById('pomo-time-display').textContent = displayStr;
+
+            document.title = `(${displayStr}) 日日時光`;
+
+            const totalSecs = isBreakMode ? (5 * 60) : (25 * 60);
+            const pct = pomoSecondsLeft / totalSecs;
+            const circle = document.getElementById('pomo-progress-ring');
+            const circumference = 2 * Math.PI * 105; // 659.73
+            circle.style.strokeDashoffset = circumference * (1 - pct);
+        }
+
+        function togglePomoTimer() {
+            const btn = document.getElementById('pomo-start-btn');
+            if (isPomoRunning) {
+                clearInterval(pomoInterval);
+                isPomoRunning = false;
+                btn.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i> 繼續專注`;
+                showUINotification("沙漏已靜止，呼吸一口氣。", "info");
+            } else {
+                isPomoRunning = true;
+                btn.innerHTML = `<i data-lucide="pause" class="w-4 h-4"></i> 暫停專注`;
+                showUINotification(isBreakMode ? "休息時光，宜飲茶眺望遠方。" : "心若磐石，起步專注。", "success");
+
+                pomoInterval = setInterval(() => {
+                    if (pomoSecondsLeft > 0) {
+                        pomoSecondsLeft--;
+                        if (pomoSecondsLeft % 60 === 0) playSoundNotification('tick');
+                        updatePomoDisplay();
+                    } else {
+                        clearInterval(pomoInterval);
+                        isPomoRunning = false;
+                        playSoundNotification('success');
+
+                        if (!isBreakMode) {
+                            showUINotification("一盞茶的時間已過，您完成了一次美妙的沉浸！", "success");
+                            recordFocusSession();
+                            isBreakMode = true;
+                            pomoSecondsLeft = 5 * 60;
+                            document.getElementById('pomo-status-label').textContent = "放空呼吸";
+                            document.getElementById('pomo-status-label').className = "text-[10px] text-earth-800 font-extrabold mt-2.5 tracking-widest uppercase";
+                        } else {
+                            showUINotification("放空結束，身心已輕盈，我們重新起步。", "success");
+                            isBreakMode = false;
+                            pomoSecondsLeft = 25 * 60;
+                            document.getElementById('pomo-status-label').textContent = "沉浸專注";
+                            document.getElementById('pomo-status-label').className = "text-[10px] text-earth-600 font-extrabold mt-2.5 tracking-widest uppercase";
+                        }
+
+                        btn.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i> 開始專注`;
+                        updatePomoDisplay();
+                    }
+                }, 1000);
+            }
+            lucide.createIcons();
+        }
+
+        function resetPomoTimer() {
+            clearInterval(pomoInterval);
+            isPomoRunning = false;
+            isBreakMode = false;
+            pomoSecondsLeft = 25 * 60;
+            document.getElementById('pomo-status-label').textContent = "無事靜坐";
+            document.getElementById('pomo-status-label').className = "text-[10px] text-earth-600/60 font-bold mt-2.5 tracking-widest uppercase";
+            document.getElementById('pomo-start-btn').innerHTML = `<i data-lucide="play" class="w-4 h-4"></i> 開始專注`;
+            updatePomoDisplay();
+            showUINotification("沙漏已重新流轉至起點。", "info");
+            lucide.createIcons();
+        }
+
+        function initAmbientAudio() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContextClass();
+                masterGain = audioCtx.createGain();
+                const initialVolume = document.getElementById('ambient-volume') ? document.getElementById('ambient-volume').value : 30;
+                masterGain.gain.setValueAtTime((initialVolume / 100) * 0.4, audioCtx.currentTime); // 限制最大增益防爆
+                masterGain.connect(audioCtx.destination);
+            }
+        }
+
+        window.toggleAmbientMusic = function() {
+            initAmbientAudio();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const btn = document.getElementById('ambient-play-btn');
+            if (isPlayingAmbient) {
+                isPlayingAmbient = false;
+                stopAllAmbient();
+                btn.innerHTML = `<i data-lucide="music" class="w-4 h-4"></i>`;
+                btn.className = "w-9 h-9 rounded-xl bg-earth-600 hover:bg-earth-700 text-white flex items-center justify-center transition shrink-0 shadow-sm shadow-earth-600/10";
+                showUINotification("背景配樂已靜音，歸於清寧。", "info");
+            } else {
+                isPlayingAmbient = true;
+                btn.innerHTML = `<i data-lucide="volume-x" class="w-4 h-4"></i>`;
+                btn.className = "w-9 h-9 rounded-xl bg-earth-800 hover:bg-earth-700 text-white flex items-center justify-center transition shrink-0 shadow-sm shadow-earth-600/10";
+                startAmbientSelected();
+                showUINotification("手記背景音樂已起奏，請調息靜心。", "success");
+            }
+            lucide.createIcons();
+        };
+
+        window.changeAmbientType = function() {
+            ambientType = document.getElementById('ambient-type-select').value;
+            if (isPlayingAmbient) {
+                startAmbientSelected();
+            }
+        };
+
+        window.changeAmbientVolume = function(val) {
+            initAmbientAudio();
+            if (masterGain) {
+                masterGain.gain.setValueAtTime((val / 100) * 0.4, audioCtx.currentTime);
+            }
+        };
+
+        // FM 頌缽銅音：重現完美的敲擊與悠長餘音
+        function playFMChime(freq) {
+            if (!audioCtx || !isPlayingAmbient) return;
+            const now = audioCtx.currentTime;
+            
+            // Carrier 
+            const carrier = audioCtx.createOscillator();
+            carrier.type = 'sine';
+            carrier.frequency.setValueAtTime(freq, now);
+            
+            // Modulator (營造帶有金屬感的打擊瞬間)
+            const modulator = audioCtx.createOscillator();
+            modulator.type = 'sine';
+            modulator.frequency.setValueAtTime(freq * 1.5, now);
+            
+            const modGain = audioCtx.createGain();
+            modGain.gain.setValueAtTime(freq * 1.8, now);
+            modGain.gain.exponentialRampToValueAtTime(0.01, now + 0.35); // 金屬打擊點快速消退
+            
+            modulator.connect(modGain);
+            modGain.connect(carrier.frequency);
+            
+            // 振幅包絡線 (緩慢悠長的缽聲餘音)
+            const gainNode = audioCtx.createGain();
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.05, now + 0.08); // 溫和起音
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 12.0); // 12秒絕美衰減
+            
+            // 濾波器：隨時間推移削弱高頻，讓缽聲越來越溫暖
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(2500, now);
+            filter.frequency.exponentialRampToValueAtTime(150, now + 5.0);
+            
+            carrier.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(masterGain);
+            
+            modulator.start(now);
+            carrier.start(now);
+            
+            modulator.stop(now + 12.0);
+            carrier.stop(now + 12.0);
+        }
+
+        function startAmbientSelected() {
+            stopAllAmbient();
+            if (!isPlayingAmbient) return;
+            
+            initAmbientAudio();
+
+            if (ambientType === 'chimes') {
+                // F# 大調五聲音階風鈴
+                const scale = [185.00, 207.65, 233.08, 277.18, 311.13, 369.99, 415.30, 466.16, 554.37, 622.25];
+                const playChime = () => {
+                    if (!audioCtx || !isPlayingAmbient) return;
+                    const freq = scale[Math.floor(Math.random() * scale.length)];
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    
+                    osc.connect(gain);
+                    gain.connect(masterGain);
+                    
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                    
+                    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.04 + Math.random() * 0.04, audioCtx.currentTime + 0.15);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 5.0 + Math.random() * 3.0);
+                    
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 9.0);
+                };
+                
+                playChime();
+                chimeInterval = setInterval(() => {
+                    if (Math.random() > 0.35) {
+                        playChime();
+                    }
+                }, 2200);
+            } else if (ambientType === 'drone') {
+                // 深沉的頌缽與冥想背景和弦
+                const roots = [110.00, 165.00, 220.00, 275.00];
+                roots.forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    
+                    osc.connect(gain);
+                    gain.connect(masterGain);
+                    
+                    osc.type = (idx % 2 === 0) ? 'sine' : 'triangle';
+                    osc.frequency.setValueAtTime(freq + (Math.random() * 0.4 - 0.2), audioCtx.currentTime); // 溫暖的微失諧
+                    
+                    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.025, audioCtx.currentTime + 4.0);
+                    
+                    // 緩慢的 LFO 包絡線調變
+                    const swell = () => {
+                        if (!isPlayingAmbient) return;
+                        const nextVal = 0.015 + Math.random() * 0.02;
+                        gain.gain.exponentialRampToValueAtTime(nextVal, audioCtx.currentTime + 4.0 + Math.random() * 4.0);
+                        setTimeout(swell, 7000 + Math.random() * 4000);
+                    };
+                    setTimeout(swell, 4000);
+
+                    osc.start();
+                    droneOscillators.push(osc);
+                });
+            } else if (ambientType === 'rain') {
+                // 升級安神暖心白噪音（採用經典白噪音訊號與溫和低通濾波處理，乾淨、穩定且極易讓人進入專注）
+                const bufferSize = audioCtx.sampleRate * 2;
+                const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const output = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+                
+                const noiseSource = audioCtx.createBufferSource();
+                noiseSource.buffer = noiseBuffer;
+                noiseSource.loop = true;
+                
+                const lowpass = audioCtx.createBiquadFilter();
+                lowpass.type = 'lowpass';
+                // 過濾掉白噪音刺耳的極高頻，使其聽起來像細碎平穩的暖風或遠處海潮
+                lowpass.frequency.setValueAtTime(650, audioCtx.currentTime);
+                
+                rainGain = audioCtx.createGain();
+                rainGain.gain.setValueAtTime(0, audioCtx.currentTime);
+                rainGain.gain.linearRampToValueAtTime(0.12, audioCtx.currentTime + 2.5);
+                
+                noiseSource.connect(lowpass);
+                lowpass.connect(rainGain);
+                rainGain.connect(masterGain);
+                
+                noiseSource.start();
+                rainSource = noiseSource;
+                droneOscillators.push(noiseSource); 
+                
+                // 已徹底移除原先容易造成瀏覽器刺耳爆音的「隨機雨滴物理 Plop 聲」
+            }
+        }
+
+        function stopAllAmbient() {
+            if (chimeInterval) {
+                clearInterval(chimeInterval);
+                chimeInterval = null;
+            }
+            droneOscillators.forEach(osc => {
+                try { osc.stop(); } catch(e) {}
+            });
+            droneOscillators = [];
+            
+            if (rainSource) {
+                try { rainSource.stop(); } catch(e) {}
+                rainSource = null;
+            }
+        }
+
+        async function recordFocusSession() {
+            if (!selectedPomoTask || !window.currentUser) return;
+            const targetId = selectedPomoTask.id;
+            const extraTime = 25;
+
+            if (window.isFirebaseActive) {
+                try {
+                    const docRef = window.doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'todos', targetId);
+                    const currentActual = selectedPomoTask.actualTime || 0;
+                    await window.updateDoc(docRef, {
+                        actualTime: currentActual + extraTime
+                    });
+                } catch (e) {
+                    console.error("更新累計時間失敗", e);
+                }
+            } else {
+                const task = window.todos.find(t => t.id === targetId);
+                if (task) {
+                    task.actualTime = (task.actualTime || 0) + extraTime;
+                    refreshUI();
+                }
+            }
+        }
+
+
+        // 侘寂色系莫蘭迪圖表 (大地灰、赤陶、鼠尾草綠)
+        let completionChartInstance = null;
+        let progressPieChartInstance = null;
+
+        function updateDashboardChartsAndStats() {
+            const list = window.todos || [];
+            const total = list.length;
+            const completed = list.filter(t => t.completed).length;
+            
+            let focusMinutes = 0;
+            list.forEach(t => {
+                focusMinutes += (t.actualTime || 0);
+            });
+
+            document.getElementById('stat-total-tasks').textContent = total;
+            document.getElementById('stat-completed-tasks').textContent = completed;
+            document.getElementById('stat-focus-time').innerHTML = `${focusMinutes} <span class="text-xs font-bold text-earth-600/60">分鐘</span>`;
+
+            let moodGrade = "靜美";
+            if (total > 0) {
+                const ratio = completed / total;
+                if (ratio >= 0.9) moodGrade = "無憾";
+                else if (ratio >= 0.75) moodGrade = "踏實";
+                else if (ratio >= 0.5) moodGrade = "安寧";
+                else if (ratio >= 0.25) moodGrade = "徐行";
+            }
+            document.getElementById('stat-ai-grade').textContent = moodGrade;
+
+            const now = new Date();
+            const lastUpdateEl = document.getElementById('last-update-time');
+            if (lastUpdateEl) {
+                lastUpdateEl.textContent = `更新於 ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            }
+
+            const categories = ["工作", "學習", "健康", "生活"];
+            const catTotal = [0, 0, 0, 0];
+            const catCompleted = [0, 0, 0, 0];
+
+            list.forEach(item => {
+                const idx = categories.indexOf(item.category);
+                if (idx !== -1) {
+                    catTotal[idx]++;
+                    if (item.completed) catCompleted[idx]++;
+                }
+            });
+
+            const isDark = document.documentElement.classList.contains('dark');
+            const gridColor = isDark ? '#38332E' : '#EAE3D2';
+            const textColor = isDark ? '#D5C7AC' : '#5F554A';
+
+            if (completionChartInstance) {
+                completionChartInstance.destroy();
+            }
+
+            const canvas1 = document.getElementById('completionChart');
+            if (canvas1) {
+                const ctx1 = canvas1.getContext('2d');
+                completionChartInstance = new Chart(ctx1, {
+                    type: 'bar',
+                    data: {
+                        labels: categories,
+                        datasets: [
+                            {
+                                label: '指派筆數',
+                                data: catTotal,
+                                backgroundColor: 'rgba(95, 113, 97, 0.25)', // 鼠尾草綠
+                                borderColor: 'rgba(95, 113, 97, 0.8)',
+                                borderWidth: 1.5,
+                                borderRadius: 12,
+                            },
+                            {
+                                label: '圓滿完成',
+                                data: catCompleted,
+                                backgroundColor: 'rgba(200, 122, 83, 0.85)', // 暖赤陶紅
+                                borderColor: 'rgba(200, 122, 83, 1)',
+                                borderWidth: 1.5,
+                                borderRadius: 12,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: { color: textColor, font: { weight: 'bold', size: 11 } }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: 'transparent' },
+                                ticks: { color: textColor }
+                            },
+                            y: {
+                                grid: { color: gridColor },
+                                ticks: { color: textColor, stepSize: 1 }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // 進度拼圖
+            if (progressPieChartInstance) {
+                progressPieChartInstance.destroy();
+            }
+
+            const canvas2 = document.getElementById('progressPieChart');
+            if (canvas2) {
+                const ctx2 = canvas2.getContext('2d');
+                const pending = total - completed;
+
+                progressPieChartInstance = new Chart(ctx2, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['安穩落筆', '待留白'],
+                        datasets: [{
+                            data: total === 0 ? [1, 0] : [completed, pending],
+                            backgroundColor: [
+                                'rgba(200, 122, 83, 0.85)', // 赤陶紅
+                                'rgba(148, 163, 184, 0.15)'
+                            ],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '75%',
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { color: textColor, boxWidth: 10, font: { size: 10 } }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // 優雅的本地高速排程生成演算法 (Optimistic UI Helper)
+        function generateLocalDraftSchedule() {
+            const list = window.todos || [];
+            if (list.length === 0) return null;
+
+            // 依優先度(高>中>低)以及是否完成排序
+            const sortedTasks = [...list].sort((a, b) => {
+                if (a.completed !== b.completed) return a.completed ? 1 : -1;
+                const pValue = { '高': 3, '中': 2, '低': 1 };
+                return (pValue[b.priority] || 2) - (pValue[a.priority] || 2);
+            });
+
+            const schedule = [];
+            let currentHour = 9;
+            let currentMin = 0;
+
+            const formatTime = (h, m) => {
+                return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+            };
+
+            sortedTasks.forEach((task, index) => {
+                const startTimeStr = formatTime(currentHour, currentMin);
+                
+                // 累計行程時間
+                let endMin = currentMin + task.estTime;
+                let endHour = currentHour;
+                if (endMin >= 60) {
+                    endHour += Math.floor(endMin / 60);
+                    endMin = endMin % 60;
+                }
+
+                schedule.push({
+                    timeSlot: `${startTimeStr} - ${formatTime(endHour, endMin)}`,
+                    taskTitle: task.title,
+                    activityType: task.category || '工作'
+                });
+
+                currentHour = endHour;
+                currentMin = endMin;
+
+                // 第一個任務結束後插入溫柔呼吸空隙
+                if (index === 0) {
+                    const breakStart = formatTime(currentHour, currentMin);
+                    let breakEndMin = currentMin + 15;
+                    let breakEndHour = currentHour;
+                    if (breakEndMin >= 60) {
+                        breakEndHour += 1;
+                        breakEndMin -= 60;
+                    }
+                    schedule.push({
+                        timeSlot: `${breakStart} - ${formatTime(breakEndHour, breakEndMin)}`,
+                        taskTitle: "靜心舒展，調整氣息",
+                        activityType: "休息"
+                    });
+                    currentHour = breakEndHour;
+                    currentMin = breakEndMin;
+                }
+            });
+
+            // 快速返回美雅格式
+            return {
+                tasks: list.map(t => ({
+                    id: t.id,
+                    aiPriority: t.priority,
+                    aiEstMinutes: t.estTime,
+                    procrastinationRisk: t.priority === '高' ? '中' : '低',
+                    riskExplanation: '高價值任務通常伴隨少許惰性，宜放鬆大腦起步。'
+                })),
+                schedule: schedule,
+                procrastinationTips: '教練建議：請將大任務切碎至僅需做五分鐘的微型步伐。',
+                recommendedHours: '您的黃金專注期能量正高，適合梳理核心難點。',
+                aiCoachQuickSummary: '已為您即時梳理生活草稿。時光教練正於背景以禪意深雕細琢中。'
+            };
+        }
+
+        // GEMINI 2.5 FLASH 心靈教練引導提示 (高度優化 API 加載速度)
+        async function fetchGeminiAIWithBackoff(promptText, systemPromptText = "") {
+            const apiKey = "";
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: promptText }] }]
+            };
+
+            if (systemPromptText) {
+                payload.systemInstruction = { parts: [{ text: systemPromptText }] };
+            }
+
+            // 為了提升 API 響應速度，強制將文字長度限制在最精簡的範圍內
+            payload.generationConfig = {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "OBJECT",
+                    properties: {
+                        tasks: {
+                            type: "ARRAY",
+                            items: {
+                                type: "OBJECT",
+                                properties: {
+                                    id: { type: "STRING" },
+                                    aiPriority: { type: "STRING" },
+                                    aiEstMinutes: { type: "INTEGER" },
+                                    procrastinationRisk: { type: "STRING" },
+                                    riskExplanation: { type: "STRING", description: "極致精簡！請務必在 12 個繁體中文字以內。" }
+                                },
+                                required: ["id", "aiPriority", "aiEstMinutes", "procrastinationRisk", "riskExplanation"]
+                            }
+                        },
+                        schedule: {
+                            type: "ARRAY",
+                            items: {
+                                type: "OBJECT",
+                                properties: {
+                                    timeSlot: { type: "STRING" },
+                                    taskTitle: { type: "STRING" },
+                                    activityType: { type: "STRING" }
+                                },
+                                required: ["timeSlot", "taskTitle", "activityType"]
+                            }
+                        },
+                        procrastinationTips: { type: "STRING", description: "請限制在 15 字內的無痛起步建議。" },
+                        recommendedHours: { type: "STRING", description: "請限制在 15 字內的時段建議。" },
+                        aiCoachQuickSummary: { type: "STRING", description: "請限制在 20 字內的手札快報。" }
+                    },
+                    required: ["tasks", "schedule", "procrastinationTips", "recommendedHours", "aiCoachQuickSummary"]
+                }
+            };
+
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            for (let i = 0; i <= delays.length; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (textResponse) {
+                        return JSON.parse(textResponse);
+                    } else {
+                        throw new Error("Empty response parts");
+                    }
+                } catch (error) {
+                    if (i === delays.length) {
+                        throw new Error("多次呼叫 AI 手記失敗，請檢查網路。");
+                    }
+                    await new Promise(resolve => setTimeout(resolve, delays[i]));
+                }
+            }
+        }
+
+        async function triggerAISync() {
+            const list = window.todos || [];
+            if (list.length === 0) {
+                showUINotification("請先新增一兩筆任務，教練才好傾聽與調配時光喔！", "info");
+                return;
+            }
+
+            // 【第一階段：零延遲 Optimistic UI 草稿】
+            const draft = generateLocalDraftSchedule();
+            if (draft) {
+                aiPlanData = draft;
+                
+                // 本地快速賦值，避免完全空白的排程介面
+                for (const item of draft.tasks) {
+                    const task = window.todos.find(t => t.id === item.id);
+                    if (task && !task.aiPriority) {
+                        task.aiPriority = item.aiPriority;
+                        task.aiEstMinutes = item.aiEstMinutes;
+                        task.procrastinationRisk = item.procrastinationRisk;
+                        task.riskExplanation = item.riskExplanation;
+                    }
+                }
+                renderScheduleList();
+                updateAIComponents();
+                refreshUI();
+            }
+
+            // 【第二階段：漸進式禪意載入與強制作息解鎖】
+            showLoadingOverlay("時光教練正在讀取生活手札...");
+            
+            const loadingMessages = [
+                "正在估算今日心靈阻力...",
+                "正在為您尋求呼吸起步時光...",
+                "正在精細調配禪意沙漏波動..."
+            ];
+            let msgIdx = 0;
+            const messageInterval = setInterval(() => {
+                if (msgIdx < loadingMessages.length) {
+                    document.getElementById('loading-title').textContent = loadingMessages[msgIdx];
+                    msgIdx++;
+                }
+            }, 800);
+
+            // 展開頂部背景加載狀態
+            const aiLoadingBadge = document.getElementById('ai-loading-badge');
+            if (aiLoadingBadge) aiLoadingBadge.classList.remove('hidden');
+
+            // 3秒自動解鎖安全閥，不讓用戶在大螢幕被強制阻隔
+            const loadingTimeout = setTimeout(() => {
+                hideLoadingOverlay();
+                clearInterval(messageInterval);
+                showUINotification("已為您即時梳理生活草稿！AI 將在背景默默精雕細琢。", "info");
+                switchTab('schedule');
+            }, 2600);
+
+            // 【第三階段：精簡型非同步 API 請求】
+            const taskInputs = list.map(t => ({
+                id: t.id,
+                title: t.title,
+                category: t.category,
+                priority: t.priority,
+                estMinutes: t.estTime
+            }));
+
+            const systemPrompt = `You are an empathetic, ultra-efficient Mindfulness Coach & Productivity Sage.
+Analyze tasks. Return ONLY valid JSON matching the schema.
+CRITICAL: To ensure ultra-fast generation speeds, keep all Chinese string outputs extremely brief (under 15 Chinese characters per field). Do not output long sentences.`;
+
+            const promptText = `
+以下是我今天的待辦：
+${JSON.stringify(taskInputs)}
+能量高峰期：${selectedPeakPeriod}
+請立即進行時光重塑。注意：所有中文描述限制在12字內。`;
+
+            try {
+                const aiResult = await fetchGeminiAIWithBackoff(promptText, systemPrompt);
+                
+                // 清理計時器
+                clearTimeout(loadingTimeout);
+                clearInterval(messageInterval);
+                hideLoadingOverlay();
+
+                if (aiResult) {
+                    aiPlanData = aiResult;
+                    
+                    // 回寫雲端數據或本地內存
+                    if (window.isFirebaseActive && window.currentUser) {
+                        for (const item of aiResult.tasks) {
+                            const docRef = window.doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'todos', item.id);
+                            await window.updateDoc(docRef, {
+                                aiPriority: item.aiPriority,
+                                aiEstMinutes: item.aiEstMinutes,
+                                procrastinationRisk: item.procrastinationRisk,
+                                riskExplanation: item.riskExplanation
+                            });
+                        }
+                    } else {
+                        // 本地模式
+                        for (const item of aiResult.tasks) {
+                            const task = window.todos.find(t => t.id === item.id);
+                            if (task) {
+                                task.aiPriority = item.aiPriority;
+                                task.aiEstMinutes = item.aiEstMinutes;
+                                task.procrastinationRisk = item.procrastinationRisk;
+                                task.riskExplanation = item.riskExplanation;
+                            }
+                        }
+                    }
+
+                    showUINotification("教練已完成深層調配，生活排程已完美重塑！", "success");
+                    
+                    renderScheduleList();
+                    updateAIComponents();
+                    refreshUI();
+                    
+                    if (currentTab !== 'schedule') {
+                        switchTab('schedule');
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                clearTimeout(loadingTimeout);
+                clearInterval(messageInterval);
+                hideLoadingOverlay();
+                showUINotification("深層 AI 訊號微弱，已為您保留本地禪意舒緩排程。", "info");
+            } finally {
+                if (aiLoadingBadge) aiLoadingBadge.classList.add('hidden');
+            }
+        }
+
+        // 行程手札渲染
+        function renderScheduleList() {
+            const container = document.getElementById('schedule-container');
+            if (!container) return;
+
+            if (!aiPlanData || !aiPlanData.schedule || aiPlanData.schedule.length === 0) {
+                container.innerHTML = `
+                    <div class="pl-12 relative flex items-center justify-center py-12 text-earth-600/40">
+                        <div class="text-center">
+                            <i data-lucide="book-open" class="w-12 h-12 mx-auto mb-3 text-earth-200"></i>
+                            <p class="font-bold">尚未產生 AI 智慧排程</p>
+                            <p class="text-xs mt-1">點擊上方「重新規劃時間表」，教練將即時為您書寫</p>
+                        </div>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = aiPlanData.schedule.map((slot, index) => {
+                const isRest = slot.activityType === '休息' || slot.taskTitle.includes('休息') || slot.taskTitle.includes('緩衝') || slot.taskTitle.includes('吸') || slot.taskTitle.includes('飲') || slot.taskTitle.includes('舒');
+                const dotColor = isRest ? 'bg-earth-800' : 'bg-earth-600';
+                const cardBg = isRest ? 'bg-earth-100/40 border-earth-200/50 dark:bg-earth-900/10' : 'bg-white dark:bg-[#211E1A] border-earth-200 dark:border-earth-900/60';
+
+                return `
+                    <div class="pl-12 relative group animate-fade-in">
+                        <div class="absolute left-[-11px] top-1 w-6 h-6 rounded-full ${dotColor} border-4 border-earth-50 dark:border-earth-950 flex items-center justify-center z-10 transition transform group-hover:scale-110"></div>
+                        
+                        <div class="p-5 rounded-2xl border ${cardBg} shadow-sm transition hover:shadow flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <span class="text-[10px] font-extrabold tracking-widest text-earth-600/60 dark:text-earth-300/50 uppercase">${escapeHTML(slot.timeSlot)}</span>
+                                <h4 class="font-bold text-sm text-[#2D2722] dark:text-[#EAE3D2] mt-1">${escapeHTML(slot.taskTitle)}</h4>
+                            </div>
+                            <span class="text-[10px] px-3 py-1 rounded-full font-bold self-start md:self-auto ${isRest ? 'bg-earth-800/10 text-earth-800 dark:text-earth-300' : 'bg-earth-600/10 text-earth-600'}">
+                                ${escapeHTML(slot.activityType)}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        function updateAIComponents() {
+            if (!aiPlanData) return;
+
+            if (aiPlanData.aiCoachQuickSummary) {
+                document.getElementById('ai-quick-summary').innerHTML = escapeHTML(aiPlanData.aiCoachQuickSummary);
+            }
+
+            const riskSection = document.getElementById('ai-procrastination-risk');
+            const tipsSection = document.getElementById('ai-overcome-tips');
+
+            const highRiskTasks = (window.todos || []).filter(t => t.procrastinationRisk === '高');
+            if (highRiskTasks.length > 0) {
+                let riskHTML = "<strong>教練察覺到您可能有些小抗拒的任務：</strong><br><div class='mt-1.5 space-y-1'>";
+                highRiskTasks.forEach(t => {
+                    riskHTML += `• <span class="text-earth-600 font-bold">${escapeHTML(t.title)}</span>：${escapeHTML(t.riskExplanation || "稍微繁重，我們可以把它切碎成微小步伐。")}<br>`;
+                });
+                riskHTML += "</div>";
+                riskSection.innerHTML = riskHTML;
+            } else {
+                riskSection.textContent = "今天所有的起步計畫都非常溫和、適度。您可以無痛踏出第一步。";
+            }
+
+            if (aiPlanData.procrastinationTips) {
+                tipsSection.innerHTML = `
+                    <div class="p-4 bg-earth-100/50 dark:bg-earth-900/50 rounded-xl border border-earth-200/50 dark:border-earth-800/50">
+                        <p class="text-[10px] text-earth-600/60 font-bold mb-1">💡 溫柔防拖延指引</p>
+                        <p class="text-xs italic leading-relaxed text-[#5F554A] dark:text-earth-200">「 ${escapeHTML(aiPlanData.procrastinationTips)} 」</p>
+                    </div>
+                `;
+            }
+
+            if (aiPlanData.recommendedHours) {
+                document.getElementById('ai-period-recommendation').textContent = aiPlanData.recommendedHours;
+            }
+        }
+
+        function saveHabitPeak() {
+            selectedPeakPeriod = document.getElementById('user-habit-peak').value;
+            showUINotification("生理時鐘已標記。讓 AI 重新規劃時可獲得更深度契合。", "success");
+        }
+
+
+        // GOOGLE CALENDAR 同步 (.ics 檔案真實下載)
+        function triggerCalendarSync() {
+            const list = window.todos || [];
+            if (list.length === 0) {
+                showUINotification("請先新增待辦事項，再來製作日程卡喔。", "info");
+                return;
+            }
+
+            document.getElementById('calendar-sync-modal').classList.remove('hidden');
+            document.getElementById('calendar-sync-loader').classList.remove('hidden');
+            document.getElementById('calendar-sync-success').classList.add('hidden');
+
+            setTimeout(() => {
+                document.getElementById('calendar-sync-loader').classList.add('hidden');
+                document.getElementById('calendar-sync-success').classList.remove('hidden');
+                playSoundNotification('success');
+            }, 1500);
+        }
+
+        function downloadICSFile() {
+            const list = window.todos || [];
+            if (list.length === 0) return;
+
+            let icsContent = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//AI Intelligent Planner//NONSGML v1.0//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n";
+            const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+
+            list.forEach((task, index) => {
+                const startHour = 9 + index;
+                const endHour = startHour + 1;
+
+                const startHourStr = startHour.toString().padStart(2, '0');
+                const endHourStr = endHour.toString().padStart(2, '0');
+
+                const dtStart = `${todayStr}T${startHourStr}0000`;
+                const dtEnd = `${todayStr}T${endHourStr}0000`;
+                const dtStamp = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+
+                icsContent += "BEGIN:VEVENT\r\n";
+                icsContent += `UID:${Date.now()}-${index}@dailyritual.internal\r\n`;
+                icsContent += `DTSTAMP:${dtStamp}\r\n`;
+                icsContent += `DTSTART:${dtStart}\r\n`;
+                icsContent += `DTEND:${dtEnd}\r\n`;
+                icsContent += `SUMMARY:${task.title} [${task.category}]\r\n`;
+                icsContent += `DESCRIPTION:分類: ${task.category}\\n自訂優先級: ${task.priority}\\n本事件由「日日時光 AI 規劃器」溫暖匯出\\n\r\n`;
+                icsContent += "END:VEVENT\r\n";
+            });
+
+            icsContent += "END:VCALENDAR\r\n";
+
+            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = `Daily_Ritual_Schedule_${todayStr}.ics`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showUINotification("手札已成功封裝！您可隨時將其匯入 Google Calendar。", "success");
+            closeCalendarModal();
+        }
+
+        function closeCalendarModal() {
+            document.getElementById('calendar-sync-modal').classList.add('hidden');
+        }
+
+
+        // UI 溫和過渡處理
+        function showLoadingOverlay(customText) {
+            const overlay = document.getElementById('loading-overlay');
+            if (customText) {
+                document.getElementById('loading-title').textContent = customText;
+            } else {
+                document.getElementById('loading-title').textContent = "正在同步您的生活筆記...";
+            }
+            overlay.classList.remove('opacity-0', 'pointer-events-none');
+            overlay.classList.add('opacity-100');
+        }
+
+        function hideLoadingOverlay() {
+            const overlay = document.getElementById('loading-overlay');
+            overlay.classList.remove('opacity-100');
+            overlay.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function toggleDarkMode() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            showUINotification(`已為您翻至 ${isDark ? '深夜炭木' : '日暖亞麻'} 手札頁。`, "info");
+            updateDashboardChartsAndStats();
+        }
+
+        function toggleAuthModal() {
+            const modal = document.getElementById('auth-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        function showUINotification(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-8 right-8 px-6 py-4 rounded-2xl shadow-xl z-50 flex items-center gap-3.5 transform translate-y-10 opacity-0 transition-all duration-300 border text-xs font-bold max-w-sm`;
+            
+            const colors = {
+                'success': 'bg-[#FAF0E6] text-earth-700 border-earth-600/20 dark:bg-[#322720] dark:text-earth-200',
+                'error': 'bg-red-50 text-red-600 border-red-200/50 dark:bg-red-950/30 dark:text-red-300',
+                'info': 'bg-earth-100 text-earth-700 border-earth-200/50 dark:bg-earth-900 dark:text-earth-200'
+            };
+            toast.className += ` ${colors[type] || colors.info}`;
+
+            const icons = {
+                'success': 'feather',
+                'error': 'alert-circle',
+                'info': 'compass'
+            };
+            const iconName = icons[type] || 'compass';
+
+            toast.innerHTML = `
+                <i data-lucide="${iconName}" class="w-4 h-4 shrink-0"></i>
+                <p class="leading-relaxed">${message}</p>
+            `;
+
+            document.body.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-10', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 3500);
+        }
+
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            updatePomoDisplay();
+        });
+    </script>
+</body>
+</html>

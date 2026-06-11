@@ -1,0 +1,2005 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Utility tools — 星際共鳴</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>html,body,#root{height:100%;}body{margin:0;}</style>
+  </head>
+  <body class="bg-slate-950">
+    <div id="root"></div>
+
+    <!-- React / ReactDOM / Babel for in-browser JSX (development only) -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+      const { useState, useEffect, useRef } = React;
+
+      // ==========================================
+      // 1. FIREBASE INITIALIZATION & FALLBACKS
+      // ==========================================
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'cosmic-psycho-platform';
+      let dbInstance = null;
+      let authInstance = null;
+      let isFirebaseActive = false;
+
+      if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+        try {
+          const firebaseConfig = JSON.parse(__firebase_config);
+          // Only attempt to initialize Firebase if the SDK functions exist (safeguard for static HTML)
+          if (typeof initializeApp === 'function' && typeof getAuth === 'function' && typeof getFirestore === 'function') {
+            const app = initializeApp(firebaseConfig);
+            authInstance = getAuth(app);
+            dbInstance = getFirestore(app);
+            isFirebaseActive = true;
+          } else {
+            console.warn('Firebase SDK not available in this environment; running in local fallback mode.');
+          }
+        } catch (e) {
+          console.error('Firebase config parsing error, running on simulated local storage.', e);
+        }
+      }
+
+// 預設精選測驗題目（當資料庫為空或本地模式時使用）—— 擴充為 8 大高畫質沉浸式心理學題型
+const DEFAULT_QUESTIONS = [
+  {
+    id: 'q1',
+    text: '當面對突如其來的巨大壓力或計畫變更時，你的直覺反應通常是？',
+    type: 'single', // 單選
+    options: [
+      { text: '保持極度冷靜，迅速列出替代方案並客觀分析可行性。', scores: { analytical: 25, creative: 0, empathetic: 0, resilient: 10 } },
+      { text: '感到有些興奮，這是一個打破常規、嘗試全新靈感的好機會！', scores: { analytical: 0, creative: 25, empathetic: 5, resilient: 10 } },
+      { text: '優先安撫自己與身邊夥伴的情緒，確保大家在溫暖安心的氛圍下前進。', scores: { analytical: 0, creative: 0, empathetic: 25, resilient: 10 } },
+      { text: '咬緊牙關，不論多痛苦，深呼吸後立刻頂著壓力繼續推進。', scores: { analytical: 5, creative: 0, empathetic: 0, resilient: 25 } }
+    ]
+  },
+  {
+    id: 'q2',
+    text: '在一個跨領域團隊專案中，你傾向扮演哪些角色？（可多選）',
+    type: 'multiple', // 多選
+    options: [
+      { text: '【架構工程師】負責釐清邏輯結構、抓出錯誤與數據驗證。', scores: { analytical: 20, creative: 0, empathetic: 0, resilient: 0 } },
+      { text: '【靈感發射器】拋出各種顛覆性創意、視覺包裝與概念。', scores: { analytical: 0, creative: 20, empathetic: 0, resilient: 0 } },
+      { text: '【心靈捕手】傾聽各方委屈與需求，調和團隊衝突，增進共情。', scores: { analytical: 0, creative: 0, empathetic: 20, resilient: 0 } },
+      { text: '【破浪前鋒】在最艱難的瓶頸期，扛住各方反對與挑戰，堅韌不拔。', scores: { analytical: 0, creative: 0, empathetic: 0, resilient: 20 } }
+    ]
+  },
+  {
+    id: 'q3',
+    text: '你如何度過一個最能讓自己補充電能、感到充實的週末下午？',
+    type: 'single',
+    options: [
+      { text: '沉浸在某個新技術、硬核科普書籍或整理優化生活流程中。', scores: { analytical: 25, creative: 0, empathetic: 0, resilient: 5 } },
+      { text: '去探索未曾到訪的美術館、動手創作、隨性探索未知街區。', scores: { analytical: 0, creative: 25, empathetic: 5, resilient: 0 } },
+      { text: '跟兩三位知心好友深度談心，毫無保留地共享彼此的故事與脆弱。', scores: { analytical: 0, creative: 5, empathetic: 25, resilient: 0 } },
+      { text: '獨自去進行高強度運動、爬山，在汗水中挑戰自己的意志極限。', scores: { analytical: 5, creative: 0, empathetic: 0, resilient: 25 } }
+    ]
+  },
+  {
+    id: 'q4',
+    text: '當看一部極具心靈震撼、悲傷卻美麗的電影時，你的第一感受更接近？',
+    type: 'single',
+    options: [
+      { text: '仔細拆解導演的敘事手法、隱喻、運鏡與前後呼應的邏輯線。', scores: { analytical: 25, creative: 5, empathetic: 0, resilient: 0 } },
+      { text: '腦海中瘋狂萌生新的故事、分鏡點子或甚至想要提筆二次創作。', scores: { analytical: 0, creative: 25, empathetic: 5, resilient: 0 } },
+      { text: '深深與角色同頻共振，眼淚完全止不住，甚至好幾天沉浸在餘韻中。', scores: { analytical: 0, creative: 0, empathetic: 25, resilient: 5 } },
+      { text: '感悟到生命在無常逆境中的偉大，這給了我更多面對明天的勇氣。', scores: { analytical: 0, creative: 0, empathetic: 5, resilient: 25 } }
+    ]
+  },
+  {
+    id: 'q5',
+    text: '如果有一艘探索無人星域的探勘飛船邀請你加入，但代價是與母星失聯數年，你最在乎的是？',
+    type: 'single',
+    options: [
+      { text: '飛船的生命維持系統規格、容錯率計算與通訊中斷的替代頻寬。', scores: { analytical: 25, creative: 0, empathetic: 0, resilient: 10 } },
+      { text: '未知深空裡可能存在的引力奇點、全新物理現象以及可能發現的新物種！', scores: { analytical: 5, creative: 25, empathetic: 0, resilient: 0 } },
+      { text: '漫長航行中，船員之間的孤寂心理支持、人際親密感與心靈照護方案。', scores: { analytical: 0, creative: 5, empathetic: 25, resilient: 0 } },
+      { text: '自己是否有足夠的決心與內在韌性，獨自熬過數千個沒有太陽升起的虛空。', scores: { analytical: 0, creative: 0, empathetic: 0, resilient: 25 } }
+    ]
+  },
+  {
+    id: 'q6',
+    text: '當你在星際溫室中，發現一種能響應人類情緒而發光、但可能具有微弱未知毒性的新植物，你會？',
+    type: 'single',
+    options: [
+      { text: '立即穿戴完整防護服，採樣分子結構，並在無塵實驗室內進行光譜分析。', scores: { analytical: 25, creative: 0, empathetic: 0, resilient: 5 } },
+      { text: '嘗試用音樂、繪畫或不同的思維波動與其共振，看看是否能激發出新的色彩圖騰。', scores: { analytical: 0, creative: 25, empathetic: 5, resilient: 0 } },
+      { text: '輕柔地與其對話，細心觀察它的生長姿態，在完全尊重其生命權的前提下進行溫和共存。', scores: { analytical: 0, creative: 5, empathetic: 25, resilient: 0 } },
+      { text: '將其標註為潛在威脅，但堅守觀測崗位，隨時準備應對可能引起的安全危機。', scores: { analytical: 5, creative: 0, empathetic: 0, resilient: 25 } }
+    ]
+  },
+  {
+    id: 'q7',
+    text: '如果被指派去調停兩個因為資源分配不均而陷入長期摩擦的鄰近星系基地，你的切入策略是？',
+    type: 'single',
+    options: [
+      { text: '用大數據模型精算雙方的能量消耗曲線，設計出一套極度公平、無可挑剔的博弈平衡協議。', scores: { analytical: 25, creative: 0, empathetic: 0, resilient: 5 } },
+      { text: '打破常規，提議建立一個橫跨雙方的「星際藝術與創意自由港」，用文化連結化解物理隔閡。', scores: { analytical: 0, creative: 25, empathetic: 10, resilient: 0 } },
+      { text: '召集雙方領袖召開「創傷共感懇談會」，讓大家卸下武裝，吐露長年爭端背後的脆弱與苦衷。', scores: { analytical: 0, creative: 0, empathetic: 25, resilient: 5 } },
+      { text: '先建立強力防線，不畏懼任何威脅，在堅定且寸步不讓的秩序下迫使雙方回到談判桌。', scores: { analytical: 5, creative: 0, empathetic: 0, resilient: 25 } }
+    ]
+  },
+  {
+    id: 'q8',
+    text: '當遭遇突如其來的「深空沙塵暴」導致通訊全部中斷、維生系統僅剩 24 小時，你第一時間會？',
+    type: 'single',
+    options: [
+      { text: '關閉非必要電路，計算出最完美的能量分配公式，以秒為單位最大化存活時間。', scores: { analytical: 25, creative: 0, empathetic: 0, resilient: 10 } },
+      { text: '利用僅剩的感測器殘留波頻，天馬行空地改裝太陽能帆板來嘗試捕捉星際靜電。', scores: { analytical: 5, creative: 25, empathetic: 0, resilient: 0 } },
+      { text: '主動擁抱並安撫身邊驚慌失措的夥伴，帶領大家在溫暖的氛圍中保持希望。', scores: { analytical: 0, creative: 0, empathetic: 25, resilient: 10 } },
+      { text: '毫不慌亂，立刻拿起手動工具走向最危險的破裂艙口，用血肉之軀頂住氣壓傾瀉。', scores: { analytical: 0, creative: 0, empathetic: 5, resilient: 25 } }
+    ]
+  }
+];
+
+function App() {
+  // ==========================================
+  // STATE MANAGEMENT
+  // ==========================================
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('home'); // 'home', 'test', 'history', 'crud', 'leaderboard'
+  
+  // 使用者相關
+  const [username, setUsername] = useState('');
+  const [avatar, setAvatar] = useState('💫');
+  const [showProfileModal, setShowProfileModal] = useState(false);
+
+  // 測驗題庫狀態 (預設為 DEFAULT_QUESTIONS 確保骨架屏前仍能渲染安全畫面)
+  const [questions, setQuestions] = useState(DEFAULT_QUESTIONS);
+  const [isQuestionsLoading, setIsQuestionsLoading] = useState(true);
+  
+  // 進行測驗中狀態
+  const [quizProgress, setQuizProgress] = useState({
+    currentIndex: 0,
+    answers: {}, // questionId: selectedIndex[]
+    scores: { analytical: 0, creative: 0, empathetic: 0, resilient: 0 }
+  });
+  
+  // 歷史測驗紀錄
+  const [histories, setHistories] = useState([]);
+  
+  // 全球分析排行榜
+  const [globalRankings, setGlobalRankings] = useState([]);
+
+  // 當前生成的測驗報告
+  const [currentReport, setCurrentReport] = useState(null);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiAnalysisResult, setAiAnalysisResult] = useState('');
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+
+  // 新增：音效與互動加值狀態
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [resonanceTarget, setResonanceTarget] = useState(null); // 雙人共鳴比對目標
+  const [stardustXp, setStardustXp] = useState(0); // 星塵XP系統
+
+  // CRUD 管理員狀態
+  const [isAdmin, setIsAdmin] = useState(true); // 預設開啟方便展示
+  const [crudModal, setCrudModal] = useState({ open: false, mode: 'add', question: null });
+  const [crudForm, setCrudForm] = useState({
+    id: '',
+    text: '',
+    type: 'single',
+    options: [
+      { text: '', scores: { analytical: 0, creative: 0, empathetic: 0, resilient: 0 } },
+      { text: '', scores: { analytical: 0, creative: 0, empathetic: 0, resilient: 0 } },
+      { text: '', scores: { analytical: 0, creative: 0, empathetic: 0, resilient: 0 } },
+      { text: '', scores: { analytical: 0, creative: 0, empathetic: 0, resilient: 0 } }
+    ]
+  });
+
+  // 通知系統
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
+
+  const triggerToast = (message, type = 'info') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast({ show: false, message: '', type: 'info' });
+    }, 3500);
+  };
+
+  // 音效合成器函數：由瀏覽器底層即時發聲（短暫建立 AudioContext）
+  const playSynthTone = (type) => {
+    if (!soundEnabled) return;
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+
+      if (type === 'click') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.frequency.setValueAtTime(1046.50, ctx.currentTime); // C6 Note
+        osc.type = 'triangle';
+        gain.gain.setValueAtTime(0.04, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.15);
+      } else if (type === 'success') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.frequency.setValueAtTime(329.63, ctx.currentTime); // E4
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.35); // A5
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.06, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.4);
+      } else if (type === 'crud') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.frequency.setValueAtTime(196.00, ctx.currentTime); // G3
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.25);
+      }
+    } catch (e) {
+      console.warn("AudioContext blocked or not allowed:", e);
+    }
+  };
+
+  // 實時動態 Canvas 宇宙星沙背景
+  useEffect(() => {
+    const canvas = document.getElementById('stellar-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId;
+    let particles = [];
+    const particleCount = 45;
+
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // 初始化星砂
+    for (let i = 0; i < particleCount; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 1.8 + 0.2,
+        speedX: Math.random() * 0.15 - 0.075,
+        speedY: Math.random() * 0.15 - 0.075,
+        opacity: Math.random() * 0.5 + 0.1
+      });
+    }
+
+    let mouseX = 0;
+    let mouseY = 0;
+    const handleMouseMove = (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      particles.forEach((p) => {
+        p.x += p.speedX;
+        p.y += p.speedY;
+
+        // 滑鼠引力微幅交互
+        const dx = mouseX - p.x;
+        const dy = mouseY - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 180) {
+          p.x += (dx / dist) * 0.15;
+          p.y += (dy / dist) * 0.15;
+        }
+
+        // 邊界回彈
+        if (p.x < 0 || p.x > canvas.width) p.speedX *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.speedY *= -1;
+
+        ctx.fillStyle = `rgba(167, 139, 250, ${p.opacity})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      animationFrameId = requestAnimationFrame(animate);
+    };
+    animate();
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      window.removeEventListener('resize', resizeCanvas);
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, []);
+
+  // ==========================================
+  // 2. FIREBASE AUTH & SYNCHRONIZATION
+  // ==========================================
+  useEffect(() => {
+    // 讀取星塵XP系統
+    const savedXp = localStorage.getItem('local_stardust_xp');
+    if (savedXp) setStardustXp(parseInt(savedXp));
+
+    if (!isFirebaseActive || !authInstance) {
+      // 本地模擬登入
+      const savedUser = localStorage.getItem('local_user');
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
+      } else {
+        const anonymousUser = { uid: 'local_user_guest_' + Math.random().toString(36).substr(2, 9), displayName: '星際旅人', avatar: '🪐', isAnonymous: true };
+        setUser(anonymousUser);
+        localStorage.setItem('local_user', JSON.stringify(anonymousUser));
+      }
+      setAuthLoading(false);
+      setIsQuestionsLoading(false);
+      
+      // 載入本地快取的題目與歷史紀錄
+      const savedQs = localStorage.getItem('local_questions');
+      if (savedQs) setQuestions(JSON.parse(savedQs));
+      const savedHist = localStorage.getItem('local_histories');
+      if (savedHist) setHistories(JSON.parse(savedHist));
+      const savedGlobal = localStorage.getItem('local_global_rankings');
+      if (savedGlobal) setGlobalRankings(JSON.parse(savedGlobal));
+      return;
+    }
+
+    // 啟動 Firebase 認證 (Rule 3: Auth first)
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(authInstance, __initial_auth_token);
+        } else {
+          await signInAnonymously(authInstance);
+        }
+      } catch (error) {
+        console.error("Firebase auth flow failed, entering simulated mode:", error);
+      }
+    };
+    initAuth();
+
+    const unsubscribeAuth = onAuthStateChanged(authInstance, (currentUser) => {
+      if (currentUser) {
+        const userDocRef = doc(dbInstance, 'artifacts', appId, 'users', currentUser.uid, 'profile');
+        getDoc(userDocRef).then((snapshot) => {
+          if (snapshot.exists()) {
+            setUser({ ...currentUser, ...snapshot.data() });
+          } else {
+            const defaultProfile = { displayName: '星際旅人', avatar: '🪐', uid: currentUser.uid };
+            setDoc(userDocRef, defaultProfile).catch(e => console.error(e));
+            setUser({ ...currentUser, ...defaultProfile });
+          }
+        }).catch(err => {
+          console.error("Error reading profile:", err);
+          setUser({ ...currentUser, displayName: '星際旅人', avatar: '🪐' });
+        });
+      } else {
+        setUser(null);
+      }
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  // ==========================================
+  // 3. FIRESTORE REAL-TIME DATA SYNC
+  // ==========================================
+  useEffect(() => {
+    if (!user || !isFirebaseActive || !dbInstance) return;
+
+    // A. 實時同步「題庫」公共數據 (徹底拆除 onSnapshot 內部的 setDoc 以防止無限更新迴圈)
+    const qCol = collection(dbInstance, 'artifacts', appId, 'public', 'data', 'questions');
+    const unsubscribeQuestions = onSnapshot(qCol, (snapshot) => {
+      const qs = [];
+      snapshot.forEach(doc => {
+        qs.push({ id: doc.id, ...doc.data() });
+      });
+      
+      if (qs.length > 0) {
+        setQuestions(qs);
+      } else {
+        setQuestions(DEFAULT_QUESTIONS);
+      }
+      setIsQuestionsLoading(false);
+    }, (error) => {
+      console.error("Questions synchronization error:", error);
+      setIsQuestionsLoading(false);
+    });
+
+    // B. 實時同步「歷史紀錄」私有數據
+    const hCol = collection(dbInstance, 'artifacts', appId, 'users', user.uid, 'history');
+    const unsubscribeHistory = onSnapshot(hCol, (snapshot) => {
+      const hist = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data) hist.push({ id: doc.id, ...data });
+      });
+      hist.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      setHistories(hist);
+    }, (error) => {
+      console.error("History synchronization error:", error);
+    });
+
+    // C. 實時同步「全球分析排行榜 / 分享牆」
+    const rCol = collection(dbInstance, 'artifacts', appId, 'public', 'data', 'global_results');
+    const unsubscribeRankings = onSnapshot(rCol, (snapshot) => {
+      const ranks = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data) ranks.push({ id: doc.id, ...data });
+      });
+      ranks.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      setGlobalRankings(ranks);
+    }, (error) => {
+      console.error("Global rankings synchronization error:", error);
+    });
+
+    return () => {
+      unsubscribeQuestions();
+      unsubscribeHistory();
+      unsubscribeRankings();
+    };
+  }, [user]);
+
+  // ==========================================
+  // 4. BUSINESS LOGIC: USER MANAGEMENT
+  // ==========================================
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    if (!username.trim()) return;
+
+    const updatedProfile = {
+      displayName: username.trim(),
+      avatar: avatar
+    };
+
+    playSynthTone('click');
+    if (isFirebaseActive && user && dbInstance) {
+      try {
+        const userDocRef = doc(dbInstance, 'artifacts', appId, 'users', user.uid, 'profile');
+        await setDoc(userDocRef, updatedProfile, { merge: true });
+        setUser(prev => ({ ...prev, ...updatedProfile }));
+        triggerToast('已成功同步星際身分與頭像！', 'success');
+      } catch (err) {
+        console.error(err);
+        triggerToast('儲存失敗，請重試', 'error');
+      }
+    } else {
+      // 本地模擬
+      const updatedUser = { ...user, ...updatedProfile };
+      setUser(updatedUser);
+      localStorage.setItem('local_user', JSON.stringify(updatedUser));
+      triggerToast('本地暱稱已更新！', 'success');
+    }
+    setShowProfileModal(false);
+  };
+
+  // ==========================================
+  // 5. BUSINESS LOGIC: CRUD QUESTION BANK
+  // ==========================================
+  const handleOpenCrudModal = (mode, q = null) => {
+    playSynthTone('click');
+    if (mode === 'add') {
+      setCrudForm({
+        id: 'q_' + Math.random().toString(36).substr(2, 9),
+        text: '',
+        type: 'single',
+        options: [
+          { text: '', scores: { analytical: 0, creative: 0, empathetic: 0, resilient: 0 } },
+          { text: '', scores: { analytical: 0, creative: 0, empathetic: 0, resilient: 0 } },
+          { text: '', scores: { analytical: 0, creative: 0, empathetic: 0, resilient: 0 } },
+          { text: '', scores: { analytical: 0, creative: 0, empathetic: 0, resilient: 0 } }
+        ]
+      });
+    } else if (mode === 'edit' && q) {
+      setCrudForm(JSON.parse(JSON.stringify(q)));
+    }
+    setCrudModal({ open: true, mode, question: q });
+  };
+
+  const handleSaveQuestion = async (e) => {
+    e.preventDefault();
+    playSynthTone('crud');
+    if (!crudForm.text.trim()) {
+      triggerToast('題目內容不得為空', 'error');
+      return;
+    }
+    const emptyOptions = crudForm.options.some(opt => !opt.text.trim());
+    if (emptyOptions) {
+      triggerToast('所有選項內容皆須填寫', 'error');
+      return;
+    }
+
+    if (isFirebaseActive && dbInstance) {
+      try {
+        const qDocRef = doc(dbInstance, 'artifacts', appId, 'public', 'data', 'questions', crudForm.id);
+        await setDoc(qDocRef, crudForm);
+        triggerToast(`成功${crudModal.mode === 'add' ? '新增' : '更新'}題目！`, 'success');
+      } catch (err) {
+        console.error(err);
+        triggerToast('操作失敗，請確認 Firebase 權限', 'error');
+      }
+    } else {
+      // 本地 CRUD 模擬
+      let updatedQs = [...questions];
+      if (crudModal.mode === 'add') {
+        updatedQs.push(crudForm);
+      } else {
+        updatedQs = updatedQs.map(q => q.id === crudForm.id ? crudForm : q);
+      }
+      setQuestions(updatedQs);
+      localStorage.setItem('local_questions', JSON.stringify(updatedQs));
+      triggerToast(`[本地] 成功${crudModal.mode === 'add' ? '新增' : '更新'}題目！`, 'success');
+    }
+    setCrudModal({ open: false, mode: 'add', question: null });
+  };
+
+  const handleDeleteQuestion = async (id) => {
+    playSynthTone('crud');
+    if (!window.confirm('確定要永久刪除此道測驗題目嗎？此動作將同步到雲端題庫。')) return;
+
+    if (isFirebaseActive && dbInstance) {
+      try {
+        const qDocRef = doc(dbInstance, 'artifacts', appId, 'public', 'data', 'questions', id);
+        await deleteDoc(qDocRef);
+        triggerToast('題目已成功自雲端移除！', 'success');
+      } catch (err) {
+        console.error(err);
+        triggerToast('刪除失敗，請重試', 'error');
+      }
+    } else {
+      const updatedQs = questions.filter(q => q.id !== id);
+      setQuestions(updatedQs);
+      localStorage.setItem('local_questions', JSON.stringify(updatedQs));
+      triggerToast('[本地] 題目已成功自本地移除！', 'success');
+    }
+  };
+
+  const handleResetDefaultQuestions = async () => {
+    playSynthTone('crud');
+    if (!window.confirm('確定要將題目庫重設為精選預設 8 大題型嗎？')) return;
+    setIsQuestionsLoading(true);
+    if (isFirebaseActive && dbInstance) {
+      try {
+        for (const q of DEFAULT_QUESTIONS) {
+          await setDoc(doc(dbInstance, 'artifacts', appId, 'public', 'data', 'questions', q.id), q);
+        }
+        triggerToast('雲端資料庫已重設並寫入預設 8 大題型！', 'success');
+      } catch (e) {
+        console.error("Failed to write questions:", e);
+        triggerToast('重置失敗，請確認 Firebase 權限', 'error');
+      } finally {
+        setIsQuestionsLoading(false);
+      }
+    } else {
+      setQuestions(DEFAULT_QUESTIONS);
+      localStorage.setItem('local_questions', JSON.stringify(DEFAULT_QUESTIONS));
+      setIsQuestionsLoading(false);
+      triggerToast('本地快取已重設為預設 8 大題型！', 'success');
+    }
+  };
+
+  // ==========================================
+  // 6. BUSINESS LOGIC: QUIZ ENGINE & AUTOMATIC SCORING
+  // ==========================================
+  const startNewQuiz = () => {
+    playSynthTone('click');
+    if (!questions || questions.length === 0) {
+      triggerToast('目前題庫沒有題目！請先點擊管理頁面的「重設為預設題目」', 'error');
+      return;
+    }
+    setQuizProgress({
+      currentIndex: 0,
+      answers: {},
+      scores: { analytical: 0, creative: 0, empathetic: 0, resilient: 0 }
+    });
+    setAiAnalysisResult('');
+    setCurrentReport(null);
+    setActiveTab('test');
+  };
+
+  const handleSelectAnswer = (qId, optionIndex, isMultiple) => {
+    playSynthTone('click');
+    const currentAnswers = quizProgress.answers[qId] || [];
+    let updated = [];
+
+    if (isMultiple) {
+      if (currentAnswers.includes(optionIndex)) {
+        updated = currentAnswers.filter(idx => idx !== optionIndex);
+      } else {
+        updated = [...currentAnswers, optionIndex];
+      }
+    } else {
+      updated = [optionIndex];
+    }
+
+    setQuizProgress(prev => ({
+      ...prev,
+      answers: {
+        ...prev.answers,
+        [qId]: updated
+      }
+    }));
+  };
+
+  const calculateResults = () => {
+    let finalScores = { analytical: 0, creative: 0, empathetic: 0, resilient: 0 };
+    let totalPossible = { analytical: 0, creative: 0, empathetic: 0, resilient: 0 };
+
+    questions.forEach(q => {
+      const selected = quizProgress.answers[q.id] || [];
+      
+      q.options?.forEach(opt => {
+        totalPossible.analytical += (opt.scores?.analytical ?? 0);
+        totalPossible.creative += (opt.scores?.creative ?? 0);
+        totalPossible.empathetic += (opt.scores?.empathetic ?? 0);
+        totalPossible.resilient += (opt.scores?.resilient ?? 0);
+      });
+
+      selected.forEach(idx => {
+        const option = q.options?.[idx];
+        if (option) {
+          finalScores.analytical += (option.scores?.analytical ?? 0);
+          finalScores.creative += (option.scores?.creative ?? 0);
+          finalScores.empathetic += (option.scores?.empathetic ?? 0);
+          finalScores.resilient += (option.scores?.resilient ?? 0);
+        }
+      });
+    });
+
+    const convertToPercentage = (score, total) => {
+      if (total === 0) return 50; 
+      const pct = Math.round((score / (total * 0.4)) * 100); 
+      return Math.min(100, Math.max(10, pct)); 
+    };
+
+    const result = {
+      analytical: convertToPercentage(finalScores.analytical, totalPossible.analytical),
+      creative: convertToPercentage(finalScores.creative, totalPossible.creative),
+      empathetic: convertToPercentage(finalScores.empathetic, totalPossible.empathetic),
+      resilient: convertToPercentage(finalScores.resilient, totalPossible.resilient)
+    };
+
+    return result;
+  };
+
+  const handleFinishQuiz = async () => {
+    playSynthTone('success');
+    const scores = calculateResults();
+    
+    let primaryTrait = '調和者';
+    const maxVal = Math.max(scores.analytical, scores.creative, scores.empathetic, scores.resilient);
+    if (maxVal === scores.analytical) primaryTrait = '理性思維者';
+    else if (maxVal === scores.creative) primaryTrait = '星空探險家';
+    else if (maxVal === scores.empathetic) primaryTrait = '心靈療癒師';
+    else if (maxVal === scores.resilient) primaryTrait = '不屈破浪者';
+
+    const reportObj = {
+      timestamp: Date.now(),
+      primaryTrait,
+      scores,
+      displayName: user?.displayName || '匿名旅人',
+      avatar: user?.avatar || '🪐',
+      userId: user?.uid || 'guest'
+    };
+
+    // 星塵XP系統提升
+    const newXp = stardustXp + 150;
+    setStardustXp(newXp);
+    localStorage.setItem('local_stardust_xp', newXp.toString());
+
+    setCurrentReport(reportObj);
+    triggerToast('測驗分析完畢！解鎖星圖特質，獲得 +150 星塵 XP 能量！', 'success');
+    
+    if (isFirebaseActive && user && dbInstance) {
+      try {
+        const userHistRef = collection(dbInstance, 'artifacts', appId, 'users', user.uid, 'history');
+        await addDoc(userHistRef, reportObj);
+
+        const globalRef = collection(dbInstance, 'artifacts', appId, 'public', 'data', 'global_results');
+        await addDoc(globalRef, reportObj);
+      } catch (err) {
+        console.error("Failed to save report to database:", err);
+      }
+    } else {
+      const updatedHist = [reportObj, ...histories];
+      setHistories(updatedHist);
+      localStorage.setItem('local_histories', JSON.stringify(updatedHist));
+
+      const updatedGlobal = [reportObj, ...globalRankings];
+      setGlobalRankings(updatedGlobal);
+      localStorage.setItem('local_global_rankings', JSON.stringify(updatedGlobal));
+    }
+
+    generateAIAnalysis(scores);
+  };
+
+  // ==========================================
+  // 7. BUSINESS LOGIC: GEMINI AI TEXT ANALYSIS
+  // ==========================================
+  const generateAIAnalysis = async (scores) => {
+    setIsGeneratingAI(true);
+    setAiAnalysisResult('');
+
+    const apiKey = ""; 
+    const systemPrompt = `你是一位專業的心理學教授與深度人格分析師，語氣溫暖、高雅、富含哲理與能量。`;
+    const userPrompt = `
+      請根據使用者的心理測驗各項維度百分比得分，為其撰寫一篇極具穿透力、充滿智慧且高質感的「星際人格共鳴與心靈成長指南」。
+
+      【使用者特質得分】
+      - 理性思維（Analytical）：${scores.analytical}%
+      - 創意探索（Creative）：${scores.creative}%
+      - 共情同理（Empathetic）：${scores.empathetic}%
+      - 逆境韌性（Resilient）：${scores.resilient}%
+
+      請撰寫包含以下四個段落（請用 Markdown 語法呈現，如標題、清單、粗體字，但不要包含程式碼塊 \`\`\` 標記）：
+
+      1. **【星河特質圖騰】**：為這個分數配置創造一個好聽、高雅的星宿名字（如：「深邃極光的傾聽者」、「超新星理性的領航員」），並簡短給予一句極具啟發性的靈魂引言。
+      2. **【核心能量解析】**：解構其高分項目所帶來的卓越天賦，以及低分維度的互補本質，如何在生活中體現。
+      3. **【潛藏黑洞與盲區】**：給予一針見血卻不失溫柔的提點，在遭遇高壓或人際摩擦時，可能陷入的心理盲點。
+      4. **【星域修行提案】**：提供 2 個具體的、與日常生活密切相連、容易實踐的心靈覺察小練習。
+    `;
+
+    try {
+      const callGemini = async (retries = 5, delay = 1000) => {
+        try {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: userPrompt }] }],
+              systemInstruction: { parts: [{ text: systemPrompt }] }
+            })
+          });
+          
+          if (!response.ok) throw new Error(`API response error ${response.status}`);
+          const data = await response.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!text) throw new Error("Empty AI text received");
+          return text;
+        } catch (err) {
+          if (retries > 0) {
+            await new Promise(res => setTimeout(res, delay));
+            return callGemini(retries - 1, delay * 2);
+          }
+          throw err;
+        }
+      };
+
+      const resultText = await callGemini();
+      setAiAnalysisResult(resultText);
+    } catch (err) {
+      console.warn("API fallback to robust local dynamic script:", err);
+      setAiAnalysisResult(`
+### 【星河特質圖騰】：星軌恆星引導者
+*「在浩瀚的星河之中，你的心智與靈魂正在折射出獨特的璀璨光芒。」*
+
+### 【核心能量解析】
+你擁有一顆能保持冷靜分析的理性大腦（${scores.analytical}%），同時也不曾澆熄對未知領域的探索渴望（${scores.creative}%）。在人際與現實環境遭遇巨變時，你可以靈活調度內在的同理心（${scores.empathetic}%）與不屈的韌性（${scores.resilient}%），在冷靜架構與感性傾聽之間，穩健地找到最和諧的生命軌道。
+
+### 【潛藏黑洞與盲區】
+* **過度承載負荷**：當你嘗試將「理性分析」與「情感共情」兼顧時，很容易在面對他人衝突時，自己陷入內耗。
+* **高標準完美主義**：你的抗壓韌性很高，但這可能導致你對自己的脆弱感到羞恥，而選擇獨自承擔一切壓力。
+
+### 【星域修行提案】
+1. **無塵靜心時刻**：每天抽空 5 分鐘，關閉所有思維工具，單純感知呼吸的長短，允許自己的大腦進行短暫的「宇宙留白」。
+2. **坦承脆弱練習**：嘗試在信任的夥伴面前，主動分享一項你近期的焦慮或無助，這不僅不會降低你的形象，反而會讓你的星圖磁場更具凝聚力。
+      `);
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
+  // ==========================================
+  // 8. CUSTOM RADAR CHART COMPONENT (SVG) —— 支援雙人共鳴重疊對齊繪製
+  // ==========================================
+  const RadarChart = ({ scores, compareScores = null, size = 300 }) => {
+    const center = size / 2;
+    const r = size * 0.35; 
+    
+    const angleMap = [
+      { name: '創新探索', key: 'creative', x: center, y: center - r, lx: center, ly: center - r - 15 },
+      { name: '共情同理', key: 'empathetic', x: center + r, y: center, lx: center + r + 30, ly: center + 4 },
+      { name: '理性思維', key: 'analytical', x: center, y: center + r, lx: center, ly: center + r + 20 },
+      { name: '逆境韌性', key: 'resilient', x: center - r, y: center, lx: center - r - 30, ly: center + 4 }
+    ];
+
+    const getPoint = (index, value) => {
+      const percentage = (value ?? 50) / 100;
+      switch (index) {
+        case 0: return { x: center, y: center - r * percentage }; 
+        case 1: return { x: center + r * percentage, y: center }; 
+        case 2: return { x: center, y: center + r * percentage }; 
+        case 3: return { x: center - r * percentage, y: center }; 
+        default: return { x: center, y: center };
+      }
+    };
+
+    // 第一人數據 (使用者)
+    const p0 = getPoint(0, scores?.creative ?? 50);
+    const p1 = getPoint(1, scores?.empathetic ?? 50);
+    const p2 = getPoint(2, scores?.analytical ?? 50);
+    const p3 = getPoint(3, scores?.resilient ?? 50);
+    const polygonPoints = `${p0.x},${p0.y} ${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y}`;
+
+    // 第二人數據 (共鳴對照組)
+    let comparePolygonPoints = "";
+    let cp0, cp1, cp2, cp3;
+    if (compareScores) {
+      cp0 = getPoint(0, compareScores.creative ?? 50);
+      cp1 = getPoint(1, compareScores.empathetic ?? 50);
+      cp2 = getPoint(2, compareScores.analytical ?? 50);
+      cp3 = getPoint(3, compareScores.resilient ?? 50);
+      comparePolygonPoints = `${cp0.x},${cp0.y} ${cp1.x},${cp1.y} ${cp2.x},${cp2.y} ${cp3.x},${cp3.y}`;
+    }
+
+    return (
+      <div className="flex flex-col items-center justify-center">
+        <svg width={size} height={size} className="overflow-visible">
+          {[0.25, 0.5, 0.75, 1.0].map((scale, i) => {
+            const sizeVal = r * scale;
+            return (
+              <polygon
+                key={i}
+                points={`
+                  ${center},${center - sizeVal} 
+                  ${center + sizeVal},${center} 
+                  ${center},${center + sizeVal} 
+                  ${center - sizeVal},${center}
+                `}
+                fill="none"
+                stroke="rgba(124, 58, 237, 0.15)"
+                strokeWidth="1"
+                strokeDasharray={i === 3 ? "0" : "3,3"}
+              />
+            );
+          })}
+
+          <text x={center} y={center - r + 12} fill="rgba(255,255,255,0.25)" fontSize="9" textAnchor="middle">100%</text>
+          <text x={center} y={center - r/2 + 4} fill="rgba(255,255,255,0.2)" fontSize="9" textAnchor="middle">50%</text>
+
+          <line x1={center} y1={center - r} x2={center} y2={center + r} stroke="rgba(124, 58, 237, 0.25)" strokeWidth="1" />
+          <line x1={center - r} y1={center} x2={center + r} y2={center} stroke="rgba(124, 58, 237, 0.25)" strokeWidth="1" />
+
+          {/* 繪製比較目標 (底部層) */}
+          {compareScores && (
+            <polygon
+              points={comparePolygonPoints}
+              fill="rgba(16, 185, 129, 0.18)"
+              stroke="rgba(16, 185, 129, 0.85)"
+              strokeWidth="2"
+              strokeDasharray="4,4"
+            />
+          )}
+
+          {/* 繪製當前使用者 (頂部層) */}
+          <polygon
+            points={polygonPoints}
+            fill="url(#radarGradient)"
+            stroke="rgba(167, 139, 250, 1)"
+            strokeWidth="2.5"
+            className="animate-pulse"
+          />
+
+          {/* 第一人端點 */}
+          {[p0, p1, p2, p3].map((pt, i) => (
+            <circle
+              key={i}
+              cx={pt.x}
+              cy={pt.y}
+              r="4.5"
+              fill="#fff"
+              stroke="#8b5cf6"
+              strokeWidth="2"
+            />
+          ))}
+
+          {/* 第二人端點 */}
+          {compareScores && [cp0, cp1, cp2, cp3].map((pt, i) => (
+            <circle
+              key={`cp-${i}`}
+              cx={pt.x}
+              cy={pt.y}
+              r="3.5"
+              fill="#10b981"
+              stroke="#fff"
+              strokeWidth="1"
+            />
+          ))}
+
+          {angleMap.map((axis, i) => {
+            const scoreVal = scores?.[axis.key] ?? 50;
+            const compVal = compareScores?.[axis.key];
+            return (
+              <g key={i}>
+                <text
+                  x={axis.lx}
+                  y={axis.ly}
+                  fill="#c084fc"
+                  fontSize="12"
+                  fontWeight="bold"
+                  textAnchor="middle"
+                  className="font-mono"
+                >
+                  {axis.name}
+                </text>
+                <text
+                  x={axis.lx}
+                  y={axis.ly + 14}
+                  fill="#fff"
+                  fontSize="10"
+                  textAnchor="middle"
+                  className="font-mono opacity-80"
+                >
+                  {scoreVal}% {compVal !== undefined && <span className="text-emerald-400">vs {compVal}%</span>}
+                </text>
+              </g>
+            );
+          })}
+
+          <defs>
+            <radialGradient id="radarGradient" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="rgba(139, 92, 246, 0.2)" />
+              <stop offset="100%" stopColor="rgba(236, 72, 153, 0.4)" />
+            </radialGradient>
+          </defs>
+        </svg>
+      </div>
+    );
+  };
+
+  // 依據主導特質推薦最適未來職涯星徽
+  const getCareerAptitude = (trait) => {
+    switch(trait) {
+      case '理性思維者': 
+        return { role: '量子系統物理學家', skill: '大數據模型、高熵代碼安全、黑洞重力演算', motto: '「星系的亂度，終將被完美的邏輯收斂。」' };
+      case '星空探險家': 
+        return { role: '多維引力領航探險家', skill: '曲速引擎除錯、超弦空間繪製、新物種溝通', motto: '「在黑洞的另一端，有千萬種打破常規的美。」' };
+      case '心靈療癒師': 
+        return { role: '深空異族心理外交協調官', skill: '同理共感、危機解構、跨星系情感架橋', motto: '「星光可以冰冷，但船艙裡的茶必須是溫熱的。」' };
+      case '不屈破浪者': 
+        return { role: '太陽能風暴重組前鋒工程師', skill: '極限艙壁維護、脈衝爆震控制、意志抗壓', motto: '「只要還有最後一秒，維生系統就不得熄滅。」' };
+      default: 
+        return { role: '跨星區通訊協調官', skill: '中樞波頻對齊、軌道校正、星河記錄維護', motto: '「於浩瀚宇宙，留下同頻共鳴的音軌。」' };
+    }
+  };
+
+  // 根據累積星塵XP計算心靈星銜 (Gamified System)
+  const getMentalRank = (xp) => {
+    if (xp >= 1000) return '🌌 宇宙大導航師 (Oracle)';
+    if (xp >= 600) return '🪐 星宿研究學者 (Scholar)';
+    if (xp >= 300) return '☄️ 軌道觀測先鋒 (Scout)';
+    return '✨ 星塵初旅者 (Initiate)';
+  };
+
+  // ==========================================
+  // VIEW RENDERERS
+  // ==========================================
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative overflow-x-hidden selection:bg-purple-500 selection:text-white">
+      {/* Dynamic Star Canvas */}
+      <canvas id="stellar-canvas" className="absolute inset-0 pointer-events-none z-0" />
+
+      {/* Background Ambience Aura */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/5 blur-[120px] pointer-events-none"></div>
+      <div className="absolute bottom-[10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-pink-500/5 blur-[120px] pointer-events-none"></div>
+
+      {/* Header Bar */}
+      <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-900 px-4 py-3 sm:px-6">
+        <div className="max-w-6xl mx-auto flex items-center justify-between relative z-10">
+          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('home')}>
+            <span className="text-2xl animate-spin-slow">🌌</span>
+            <div>
+              <h1 className="text-lg font-bold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-violet-400 via-indigo-200 to-pink-400">
+                星際共鳴
+              </h1>
+              <p className="text-2xs text-slate-500 uppercase tracking-widest font-mono">AI Personality Lab</p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 sm:space-x-4">
+            {/* Audio Toggle removed per request */}
+
+
+
+            {/* Admin Switcher */}
+            <button 
+              onClick={() => setIsAdmin(!isAdmin)}
+              className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
+                isAdmin 
+                  ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' 
+                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {isAdmin ? '🛡️ 管理員模式' : '🔑 點此模擬管理員'}
+            </button>
+
+            {/* Profile Bar */}
+            {user ? (
+              <div 
+                onClick={() => {
+                  setUsername(user.displayName || '');
+                  setAvatar(user.avatar || '🪐');
+                  setShowProfileModal(true);
+                }}
+                className="flex items-center space-x-2 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-violet-500/30 px-3 py-1.5 rounded-full cursor-pointer transition-all"
+              >
+                <span className="text-base">{user.avatar || '🪐'}</span>
+                <div className="flex flex-col text-left">
+                  <span className="text-xs font-medium max-w-[100px] truncate leading-none mb-0.5">{user.displayName || '星際旅人'}</span>
+                  <span className="text-4xs font-mono text-purple-400 leading-none">{getMentalRank(stardustXp).split(' ')[1]}</span>
+                </div>
+              </div>
+            ) : (
+              <span className="text-xs text-slate-500">載入旅人資訊...</span>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Navigation tabs */}
+      <nav className="border-b border-slate-900 bg-slate-950/40 relative z-10">
+        <div className="max-w-6xl mx-auto flex overflow-x-auto whitespace-nowrap scrollbar-none px-4">
+          <button 
+            onClick={() => setActiveTab('home')}
+            className={`px-4 py-3 text-xs font-semibold tracking-wider border-b-2 transition-all ${
+              activeTab === 'home' ? 'border-violet-500 text-violet-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            🏠 首頁探索
+          </button>
+          <button 
+            onClick={() => startNewQuiz()}
+            className={`px-4 py-3 text-xs font-semibold tracking-wider border-b-2 transition-all ${
+              activeTab === 'test' ? 'border-violet-500 text-violet-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            ✨ 心靈測驗 ({questions?.length ?? 0} 題)
+          </button>
+          <button 
+            onClick={() => setActiveTab('history')}
+            className={`px-4 py-3 text-xs font-semibold tracking-wider border-b-2 transition-all ${
+              activeTab === 'history' ? 'border-violet-500 text-violet-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            📚 歷史星圖
+          </button>
+          <button 
+            onClick={() => setActiveTab('leaderboard')}
+            className={`px-4 py-3 text-xs font-semibold tracking-wider border-b-2 transition-all ${
+              activeTab === 'leaderboard' ? 'border-violet-500 text-violet-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            🏆 探索共鳴榜
+          </button>
+          {isAdmin && (
+            <button 
+              onClick={() => setActiveTab('crud')}
+              className={`px-4 py-3 text-xs font-semibold tracking-wider border-b-2 transition-all ${
+                activeTab === 'crud' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              ⚙️ 題庫管理 (CRUD)
+            </button>
+          )}
+        </div>
+      </nav>
+
+      {/* Main Content Body */}
+      <main className="flex-grow max-w-6xl w-full mx-auto p-4 sm:p-6 relative z-10">
+        
+        {/* VIEW 1: HOME PAGE */}
+        {activeTab === 'home' && (
+          <div className="space-y-8 animate-fade-in">
+            {/* Hero Card */}
+            <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-indigo-950/80 via-slate-900/90 to-purple-950/80 p-6 sm:p-10 border border-violet-500/20 text-center">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-violet-500/20 rounded-full blur-[80px]"></div>
+              
+              <div className="flex justify-center items-center space-x-2 mb-2">
+                <span className="text-xs font-mono px-3 py-1 bg-violet-500/10 border border-violet-500/30 text-violet-300 rounded-full">
+                  當前星等職銜: {getMentalRank(stardustXp)}
+                </span>
+                <span className="text-xs font-mono px-3 py-1 bg-pink-500/10 border border-pink-500/30 text-pink-300 rounded-full">
+                  星塵能量: {stardustXp} XP
+                </span>
+              </div>
+
+              <span className="text-5xl mb-4 block animate-bounce">🛸</span>
+              <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-violet-300 via-pink-200 to-indigo-300">
+                展開你的星際靈魂航行
+              </h2>
+              <p className="mt-3 text-sm sm:text-base text-slate-300 max-w-xl mx-auto leading-relaxed">
+                結合精準心靈心理學理論，搭配雲端題庫。測驗結束後將串接頂尖 <span className="text-violet-400 font-semibold">Gemini 2.5 AI 模型</span>，專屬解密你的四次元能量，指引成長之路。
+              </p>
+              
+              <div className="mt-8 flex flex-wrap justify-center gap-4">
+                <button 
+                  onClick={() => startNewQuiz()}
+                  className="px-6 py-3 rounded-full font-semibold text-sm bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-[0_0_20px_rgba(124,58,237,0.4)] hover:shadow-[0_0_25px_rgba(124,58,237,0.6)] transform active:scale-95 transition-all"
+                >
+                  🚀 開始心靈測驗 ({questions?.length ?? 0} 題)
+                </button>
+                <button 
+                  onClick={() => setActiveTab('history')}
+                  className="px-6 py-3 rounded-full font-semibold text-sm bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-all"
+                >
+                  📂 查看歷史紀錄
+                </button>
+              </div>
+            </div>
+
+            {/* Feature Highlights Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-slate-900/40 backdrop-blur-sm border border-slate-900 p-5 rounded-xl">
+                <span className="text-3xl">📊</span>
+                <h3 className="text-base font-bold text-slate-200 mt-3">多維度自動計分</h3>
+                <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                  系統高度支援單選與多選題型，作答完畢立即演算出四大心靈維度：理性、創新、共情與韌性。
+                </p>
+              </div>
+              <div className="bg-slate-900/40 backdrop-blur-sm border border-slate-900 p-5 rounded-xl">
+                <span className="text-3xl">🧠</span>
+                <h3 className="text-base font-bold text-slate-200 mt-3">Gemini AI 智能解析</h3>
+                <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                  不只是冷冰冰的分數！人工智慧將化身專屬心理學家，透析你內心的核心盲點、提供客製修煉課表。
+                </p>
+              </div>
+              <div className="bg-slate-900/40 backdrop-blur-sm border border-slate-900 p-5 rounded-xl">
+                <span className="text-3xl">🔊</span>
+                <h3 className="text-base font-bold text-slate-200 mt-3">免下載 Web Audio 星音頻</h3>
+                <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                  點按選擇時發送精緻的磬音反饋，帶給使用者充滿神祕未來感的全感官心靈測驗洗禮。
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* VIEW 2: QUIZ RUNNER OR REPORT DISPLAY */}
+        {activeTab === 'test' && (
+          <div className="max-w-2xl mx-auto animate-fade-in">
+            {isQuestionsLoading ? (
+              <div className="bg-slate-900/50 backdrop-blur-md border border-slate-800 p-6 sm:p-8 rounded-2xl relative animate-pulse space-y-6">
+                <div className="h-4 bg-slate-800 rounded w-1/3"></div>
+                <div className="h-6 bg-slate-800 rounded w-3/4"></div>
+                <div className="space-y-3">
+                  <div className="h-12 bg-slate-800 rounded-xl"></div>
+                  <div className="h-12 bg-slate-800 rounded-xl"></div>
+                  <div className="h-12 bg-slate-800 rounded-xl"></div>
+                </div>
+              </div>
+            ) : !currentReport ? (
+              (!questions || questions.length === 0) ? (
+                <div className="text-center py-12 bg-slate-900/30 border border-slate-800 rounded-2xl p-6">
+                  <p className="text-sm text-slate-400">當前測驗庫沒有任何題目</p>
+                  <button
+                    onClick={() => setActiveTab('crud')}
+                    className="mt-4 px-4 py-2 bg-amber-600 rounded-lg text-xs"
+                  >
+                    前往題庫重設
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-slate-900/50 backdrop-blur-md border border-slate-800 p-6 sm:p-8 rounded-2xl relative">
+                  {/* Progress bar */}
+                  <div className="w-full h-1 bg-slate-800 rounded-full mb-6 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-violet-500 to-pink-500 transition-all duration-300"
+                      style={{ width: `${(((quizProgress.currentIndex + 1) / questions.length) * 100) || 0}%` }}
+                    ></div>
+                  </div>
+
+                  <div className="flex justify-between items-center text-2xs font-mono text-slate-500 mb-2">
+                    <span>QUEST {quizProgress.currentIndex + 1} / {questions.length}</span>
+                    <span className="bg-violet-950/60 text-violet-300 px-2 py-0.5 rounded border border-violet-800/40">
+                      {questions[quizProgress.currentIndex]?.type === 'multiple' ? '多選題' : '單選題'}
+                    </span>
+                  </div>
+
+                  <h3 className="text-lg sm:text-xl font-bold text-slate-100 leading-snug mb-6">
+                    {questions[quizProgress.currentIndex]?.text ?? '載入問題中...'}
+                  </h3>
+
+                  <div className="space-y-3">
+                    {questions[quizProgress.currentIndex]?.options?.map((opt, idx) => {
+                      const qId = questions[quizProgress.currentIndex].id;
+                      const isSelected = (quizProgress.answers[qId] || []).includes(idx);
+                      const isMultiple = questions[quizProgress.currentIndex].type === 'multiple';
+
+                      return (
+                        <div 
+                          key={idx}
+                          onClick={() => handleSelectAnswer(qId, idx, isMultiple)}
+                          className={`p-4 rounded-xl border text-sm text-left transition-all cursor-pointer flex items-center justify-between ${
+                            isSelected 
+                              ? 'bg-violet-600/20 border-violet-500 text-white shadow-[0_0_12px_rgba(139,92,246,0.15)]' 
+                              : 'bg-slate-950/40 border-slate-800 text-slate-300 hover:bg-slate-900'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-3 pr-2">
+                            <div className={`w-5 h-5 flex items-center justify-center shrink-0 border ${
+                              isMultiple ? 'rounded' : 'rounded-full'
+                            } ${
+                              isSelected ? 'border-violet-400 bg-violet-600' : 'border-slate-700 bg-slate-900'
+                            }`}>
+                              {isSelected && <span className="text-2xs text-white">✓</span>}
+                            </div>
+                            <span>{opt.text}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-8 pt-4 border-t border-slate-800 flex justify-between">
+                    <button
+                      disabled={quizProgress.currentIndex === 0}
+                      onClick={() => setQuizProgress(prev => ({ ...prev, currentIndex: prev.currentIndex - 1 }))}
+                      className="px-4 py-2 text-xs rounded-lg font-semibold bg-slate-950/60 border border-slate-800 text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:pointer-events-none transition-all"
+                    >
+                      ← 上一題
+                    </button>
+
+                    {quizProgress.currentIndex < questions.length - 1 ? (
+                      <button
+                        disabled={!(quizProgress.answers[questions[quizProgress.currentIndex]?.id]?.length > 0)}
+                        onClick={() => setQuizProgress(prev => ({ ...prev, currentIndex: prev.currentIndex + 1 }))}
+                        className="px-5 py-2 text-xs rounded-lg font-semibold bg-violet-600 hover:bg-violet-500 text-white shadow-[0_0_10px_rgba(124,58,237,0.2)] disabled:opacity-30 disabled:pointer-events-none transition-all"
+                      >
+                        下一題 →
+                      </button>
+                    ) : (
+                      <button
+                        disabled={!(quizProgress.answers[questions[quizProgress.currentIndex]?.id]?.length > 0)}
+                        onClick={() => handleFinishQuiz()}
+                        className="px-6 py-2.5 text-xs rounded-lg font-semibold bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-600 hover:opacity-90 text-white shadow-[0_0_15px_rgba(219,39,119,0.3)] disabled:opacity-30 disabled:pointer-events-none transition-all"
+                      >
+                        🌟 送出分析
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            ) : (
+              /* Report Display State */
+              <div className="space-y-6">
+                {/* Visual Report Card */}
+                <div className="bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-2xl p-6 sm:p-8 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4">
+                    <button 
+                      onClick={() => setShareModalOpen(true)}
+                      className="p-2 bg-slate-950 border border-slate-800 rounded-full hover:border-violet-500/50 hover:text-violet-400 transition-all"
+                      title="分享測驗結果"
+                    >
+                      🔗 分享
+                    </button>
+                  </div>
+
+                  <div className="text-center mb-6">
+                    <div className="inline-block text-4xl p-3 bg-violet-950/50 rounded-full border border-violet-800/30 mb-2">
+                      {currentReport.avatar ?? '🪐'}
+                    </div>
+                    <p className="text-2xs uppercase tracking-widest font-mono text-violet-400">Personal Astrology</p>
+                    <h3 className="text-2xl font-black text-slate-100 mt-1">
+                      {currentReport.displayName ?? '星際旅人'} 的星域屬性
+                    </h3>
+                    <div className="mt-2 inline-flex items-center space-x-1 px-3 py-1 bg-violet-950/40 border border-violet-800/40 rounded-full text-xs text-violet-300">
+                      <span>主要特質主宰星：</span>
+                      <span className="font-bold text-white">{currentReport.primaryTrait ?? '探索者'}</span>
+                    </div>
+                  </div>
+
+                  {/* RADAR CHART VISUALIZATION */}
+                  <div className="py-6 flex justify-center bg-slate-950/40 rounded-xl border border-slate-900 mb-8">
+                    <RadarChart scores={currentReport.scores} />
+                  </div>
+
+                  {/* Dimension breakdown bar cards */}
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3 font-mono">維度光譜百分比</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {[
+                      { name: '理性思維 (Analytical)', val: currentReport.scores?.analytical ?? 0, color: 'from-blue-600 to-indigo-500', desc: '邏輯建構、數據剖析與系統思維力' },
+                      { name: '創新探索 (Creative)', val: currentReport.scores?.creative ?? 0, color: 'from-purple-600 to-violet-500', desc: '藝術感知、天馬行空與突圍靈感' },
+                      { name: '共情同理 (Empathetic)', val: currentReport.scores?.empathetic ?? 0, color: 'from-pink-600 to-fuchsia-500', desc: '心靈共振、情感支持與人際調和力' },
+                      { name: '逆境韌性 (Resilient)', val: currentReport.scores?.resilient ?? 0, color: 'from-amber-600 to-orange-500', desc: '在逆流中沉著頂住、逆風翻盤的意志' }
+                    ].map((item, index) => (
+                      <div key={index} className="bg-slate-950/40 border border-slate-900 p-4 rounded-xl">
+                        <div className="flex justify-between items-center mb-1 text-xs font-semibold">
+                          <span className="text-slate-300">{item.name}</span>
+                          <span className="text-white font-mono">{item.val}%</span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden mb-2">
+                          <div className={`h-full bg-gradient-to-r ${item.color}`} style={{ width: `${item.val}%` }}></div>
+                        </div>
+                        <p className="text-3xs text-slate-500 leading-relaxed">{item.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Simulated Starry Career Aptitude Card (星徽未來職涯推薦) */}
+                <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-2xl relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl group-hover:bg-amber-500/10 transition-all"></div>
+                  <h4 className="text-xs font-mono uppercase tracking-wider text-amber-400 mb-3">未來星際適性職涯定位</h4>
+                  <div className="flex items-start space-x-4">
+                    <span className="text-3xl p-2 bg-amber-950/30 border border-amber-800/30 rounded-xl">🛰️</span>
+                    <div>
+                      <h5 className="text-sm font-bold text-slate-100">{getCareerAptitude(currentReport.primaryTrait).role}</h5>
+                      <p className="text-xs text-slate-400 mt-1"><span className="text-amber-500">主宰技能：</span>{getCareerAptitude(currentReport.primaryTrait).skill}</p>
+                      <p className="text-3xs italic text-slate-500 mt-2 font-mono">{getCareerAptitude(currentReport.primaryTrait).motto}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Deep Analysis Markdown Box */}
+                <div className="bg-gradient-to-br from-indigo-950/30 to-purple-950/30 backdrop-blur-md border border-violet-500/20 rounded-2xl p-6 sm:p-8">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <span className="animate-pulse">✨</span>
+                    <h3 className="text-lg font-bold text-slate-100 bg-clip-text text-transparent bg-gradient-to-r from-violet-300 to-pink-300">
+                      Gemini 2.5 專家心理學深度報告
+                    </h3>
+                  </div>
+
+                  {isGeneratingAI ? (
+                    <div className="py-12 flex flex-col items-center justify-center space-y-4">
+                      {/* Magical Pulsing Circle Loader */}
+                      <div className="relative">
+                        <div className="w-12 h-12 rounded-full border-t-2 border-r-2 border-violet-500 animate-spin"></div>
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-sm">🌌</div>
+                      </div>
+                      <p className="text-xs text-slate-400 animate-pulse font-mono tracking-widest">
+                        AI Therapist is studying your stellar vibrations...
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-left text-sm text-slate-300 leading-relaxed space-y-4 prose prose-invert max-w-none">
+                      {aiAnalysisResult.split('\n\n').map((para, i) => {
+                        if (para.startsWith('###')) {
+                          return <h4 key={i} className="text-base font-bold text-violet-400 mt-6 mb-2 border-b border-violet-950/80 pb-1">{para.replace(/###/g, '')}</h4>;
+                        }
+                        if (para.startsWith('**') || para.startsWith('*')) {
+                          return <p key={i} className="italic text-indigo-200 pl-3 border-l-2 border-indigo-500/40 my-3">{para.replace(/[\*\#]/g, '')}</p>;
+                        }
+                        return <p key={i} className="text-slate-300 whitespace-pre-wrap">{para.replace(/\*\*/g, '')}</p>;
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Return Buttons */}
+                <div className="flex justify-center space-x-4">
+                  <button 
+                    onClick={() => startNewQuiz()}
+                    className="px-6 py-2.5 rounded-full font-semibold text-xs bg-slate-900 border border-slate-800 text-slate-300 hover:text-white transition-all"
+                  >
+                    🔄 重新測驗
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('history')}
+                    className="px-6 py-2.5 rounded-full font-semibold text-xs bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:opacity-90 transition-all"
+                  >
+                    📂 前往星圖歷史館
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* VIEW 3: HISTORIES LIST */}
+        {activeTab === 'history' && (
+          <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-bold text-slate-100">你的心靈足跡歷史館</h3>
+                <p className="text-xs text-slate-500">記錄著你在不同時期所透射出的內在星圖能量。</p>
+              </div>
+              <span className="bg-slate-900 border border-slate-800 px-3 py-1 rounded-full text-xs font-mono text-slate-400">
+                共 {histories.length} 筆
+              </span>
+            </div>
+
+            {histories.length === 0 ? (
+              <div className="text-center py-16 bg-slate-900/20 border border-slate-900 rounded-2xl">
+                <span className="text-5xl block mb-3">🕸️</span>
+                <p className="text-sm text-slate-400">目前尚無歷史星圖，快去進行你的首場心靈共振測驗吧！</p>
+                <button 
+                  onClick={() => startNewQuiz()}
+                  className="mt-4 px-5 py-2.5 rounded-full text-xs bg-violet-600 hover:bg-violet-500 text-white transition-all"
+                >
+                  🚀 展開測驗
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {histories.map((hist, idx) => (
+                  <div 
+                    key={idx} 
+                    className="bg-slate-900/40 backdrop-blur-sm border border-slate-900 hover:border-violet-500/20 p-5 rounded-xl transition-all flex flex-col md:flex-row items-center md:justify-between gap-6"
+                  >
+                    <div className="flex items-center space-x-4 text-left w-full md:w-auto">
+                      <div className="text-2xl p-2 bg-slate-950 border border-slate-800 rounded-lg">
+                        {hist.avatar ?? '🪐'}
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-semibold text-slate-200">{hist.displayName ?? '旅人'}</span>
+                          <span className="text-3xs text-slate-500 font-mono">({new Date(hist.timestamp).toLocaleDateString()})</span>
+                        </div>
+                        <h4 className="text-base font-bold text-violet-400 mt-1">{hist.primaryTrait ?? '未知特質'}</h4>
+                        {/* Short metrics */}
+                        <div className="flex items-center space-x-3 text-3xs font-mono text-slate-400 mt-2">
+                          <span>理性:{hist.scores?.analytical ?? 0}%</span>
+                          <span>創新:{hist.scores?.creative ?? 0}%</span>
+                          <span>共情:{hist.scores?.empathetic ?? 0}%</span>
+                          <span>韌性:{hist.scores?.resilient ?? 0}%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-3 self-end md:self-auto">
+                      <button 
+                        onClick={() => {
+                          setCurrentReport(hist);
+                          setAiAnalysisResult(''); 
+                          setIsGeneratingAI(false);
+                          setActiveTab('test');
+                          generateAIAnalysis(hist.scores); 
+                        }}
+                        className="px-4 py-2 rounded-lg text-xs bg-violet-950/80 hover:bg-violet-900 border border-violet-800/40 text-violet-300 transition-all"
+                      >
+                        🧬 解密此星圖
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* VIEW 4: RANKING & SHARE WALL */}
+        {activeTab === 'leaderboard' && (
+          <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+            <div className="text-center max-w-xl mx-auto">
+              <span className="text-4xl block mb-2">📡</span>
+              <h3 className="text-xl font-bold text-slate-100">星際共鳴分享牆</h3>
+              <p className="text-xs text-slate-400 mt-2">
+                此處匯集了所有來自全星系旅人解鎖的靈魂屬性，點擊「對齊共鳴」即可演算兩人波譜重疊圖！
+              </p>
+            </div>
+
+            <div className="bg-slate-900/30 border border-slate-900 p-4 rounded-xl flex items-center justify-between">
+              <span className="text-xs text-slate-400">目前共鳴中樞活躍數：</span>
+              <span className="text-xs text-violet-400 font-mono font-bold">{globalRankings.length} 次觀測點</span>
+            </div>
+
+            {globalRankings.length === 0 ? (
+              <div className="text-center py-12 bg-slate-900/10 border border-slate-900 rounded-xl text-slate-500 text-xs">
+                尚無星軌廣播。完成測驗或同步 Firebase，即可在此留下你的頻率。
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {globalRankings.map((rank, idx) => (
+                  <div key={idx} className="bg-slate-900/40 border border-slate-900 p-4 rounded-xl text-left relative overflow-hidden group hover:border-pink-500/20 transition-all">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-pink-500/5 rounded-full blur-2xl group-hover:bg-pink-500/10 transition-all"></div>
+                    
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-xl">{rank.avatar ?? '🪐'}</span>
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-300 truncate max-w-[150px]">{rank.displayName ?? '旅人'}</h4>
+                          <p className="text-3xs text-slate-500 font-mono">{new Date(rank.timestamp).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      
+                      {/* Interactive Alignment Trigger */}
+                      {histories.length > 0 && (
+                        <button 
+                          onClick={() => {
+                            playSynthTone('click');
+                            // 演算共鳴比對 (以第一筆歷史星圖當作本機使用者數據)
+                            setResonanceTarget({
+                              user: histories[0],
+                              target: rank
+                            });
+                          }}
+                          className="px-2 py-1 bg-violet-600/20 border border-violet-500/30 text-violet-300 rounded text-4xs font-mono font-bold hover:bg-violet-600 hover:text-white transition-all"
+                        >
+                          🔗 對齊共鳴
+                        </button>
+                      )}
+                    </div>
+
+                    <p className="text-2xs uppercase tracking-widest text-pink-400 font-mono">星系角色</p>
+                    <h5 className="text-sm font-bold text-slate-100 mt-0.5">{rank.primaryTrait ?? '未知角色'}</h5>
+
+                    <div className="mt-4 pt-3 border-t border-slate-900 grid grid-cols-4 gap-1 text-center text-3xs font-mono">
+                      <div>
+                        <div className="text-slate-500">理性</div>
+                        <div className="text-slate-300 font-bold">{rank.scores?.analytical ?? 0}%</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500">創新</div>
+                        <div className="text-slate-300 font-bold">{rank.scores?.creative ?? 0}%</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500">共情</div>
+                        <div className="text-slate-300 font-bold">{rank.scores?.empathetic ?? 0}%</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500">韌性</div>
+                        <div className="text-slate-300 font-bold">{rank.scores?.resilient ?? 0}%</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* VIEW 5: QUESTION POOL CRUD PANEL */}
+        {activeTab === 'crud' && isAdmin && (
+          <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-slate-100">測驗題庫雲端控制台</h3>
+                <p className="text-xs text-slate-500">
+                  可實時進行測驗題目新增、編輯與刪除（CRUD）。修改後將同步至雲端/本地快取，所有作答立即生效。
+                </p>
+              </div>
+
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => handleResetDefaultQuestions()}
+                  className="px-4 py-2 bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs font-semibold rounded-lg transition-all animate-pulse"
+                >
+                  🔄 重設為預設題目 (並寫入雲端)
+                </button>
+                <button
+                  onClick={() => handleOpenCrudModal('add')}
+                  className="px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-500 text-white text-xs font-semibold rounded-lg hover:brightness-115 transition-all shadow-[0_0_15px_rgba(217,119,6,0.3)]"
+                >
+                  ➕ 新增測驗題
+                </button>
+              </div>
+            </div>
+
+            {/* Questions Table */}
+            {isQuestionsLoading ? (
+              <div className="py-12 flex justify-center text-slate-500 text-xs font-mono animate-pulse">
+                ⏳ 同步雲端題庫中...
+              </div>
+            ) : (
+              <div className="bg-slate-900/40 border border-slate-900 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-950 border-b border-slate-900 text-slate-400 font-mono">
+                        <th className="p-4 w-[60%]">題目內容 (Question)</th>
+                        <th className="p-4">類型</th>
+                        <th className="p-4">選項數量</th>
+                        <th className="p-4 text-center">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-900">
+                      {questions.map((q) => (
+                        <tr key={q.id} className="hover:bg-slate-900/30 transition-all">
+                          <td className="p-4">
+                            <p className="font-bold text-slate-200 line-clamp-1">{q.text}</p>
+                            <p className="text-3xs text-slate-500 mt-1 font-mono">ID: {q.id}</p>
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-2 py-0.5 rounded text-3xs ${
+                              q.type === 'multiple' 
+                                ? 'bg-purple-950 border border-purple-800 text-purple-300' 
+                                : 'bg-indigo-950 border border-indigo-800 text-indigo-300'
+                            }`}>
+                              {q.type === 'multiple' ? '多選' : '單選'}
+                            </span>
+                          </td>
+                          <td className="p-4 font-mono text-slate-300">{q.options?.length || 0} 個選項</td>
+                          <td className="p-4">
+                            <div className="flex items-center justify-center space-x-2">
+                              <button 
+                                onClick={() => handleOpenCrudModal('edit', q)}
+                                className="p-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded text-amber-400"
+                                title="修改"
+                              >
+                                ✏️
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteQuestion(q.id)}
+                                className="p-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded text-red-400"
+                                title="刪除"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-slate-950 border-t border-slate-950 py-6 text-center text-3xs font-mono text-slate-600 relative z-10">
+        <p>© 2026 星際共鳴 LAB. Powered by Gemini Pro Core Framework.</p>
+        <p className="mt-1">符合 RWD 桌機、平板、行動觸控流暢互動，Firebase Firestore 雲端即時同步與全防禦安全設計。</p>
+      </footer>
+
+      {/* ==========================================
+          MODAL 1: PROFILE / REGISTRATION SETTINGS
+          ========================================== */}
+      {showProfileModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl p-6 relative">
+            <button 
+              onClick={() => setShowProfileModal(false)}
+              className="absolute top-4 right-4 text-slate-500 hover:text-white"
+            >
+              ✕
+            </button>
+            <h3 className="text-base font-bold text-slate-100 mb-4">設定星際旅人身分</h3>
+            
+            <form onSubmit={handleSaveProfile} className="space-y-4">
+              <div>
+                <label className="block text-2xs uppercase tracking-wider text-slate-500 font-mono mb-1.5">選擇星徽頭像</label>
+                <div className="flex justify-between text-xl p-2 bg-slate-950 border border-slate-800 rounded-lg">
+                  {['💫', '🪐', '👽', '☄️', '👾', '🚀', '🧙‍♂️'].map((emoji) => (
+                    <button 
+                      key={emoji}
+                      type="button"
+                      onClick={() => setAvatar(emoji)}
+                      className={`p-1.5 rounded transition-all ${avatar === emoji ? 'bg-violet-600 scale-110' : 'hover:bg-slate-900'}`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-2xs uppercase tracking-wider text-slate-500 font-mono mb-1.5">星際探索代號 (暱稱)</label>
+                <input 
+                  type="text" 
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="如：半馬座指揮官"
+                  className="w-full text-sm px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 focus:outline-none focus:border-violet-500 transition-all"
+                  maxLength={16}
+                  required
+                />
+              </div>
+
+              <button 
+                type="submit"
+                className="w-full py-2.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-90 text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all"
+              >
+                💾 儲存並同步
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODAL 2: CRUD EDITOR DIALOG (ADD / EDIT)
+          ========================================== */}
+      {crudModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-2xl shadow-2xl p-6 my-8 relative">
+            <button 
+              onClick={() => setCrudModal({ open: false, mode: 'add', question: null })}
+              className="absolute top-4 right-4 text-slate-500 hover:text-white"
+            >
+              ✕
+            </button>
+            
+            <h3 className="text-base font-bold text-slate-100 mb-4 flex items-center space-x-2">
+              <span>{crudModal.mode === 'add' ? '✨ 新增測驗題目' : '✏️ 修改測驗題目'}</span>
+              <span className="text-xs font-mono text-slate-500">({crudForm.id})</span>
+            </h3>
+
+            <form onSubmit={handleSaveQuestion} className="space-y-4">
+              <div>
+                <label className="block text-2xs uppercase tracking-wider text-slate-500 font-mono mb-1">測驗題目敘述</label>
+                <input 
+                  type="text" 
+                  value={crudForm.text}
+                  onChange={(e) => setCrudForm({ ...crudForm, text: e.target.value })}
+                  placeholder="請輸入直擊心靈的心理學情境敘述..."
+                  className="w-full text-xs px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 focus:outline-none focus:border-violet-500 transition-all"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-2xs uppercase tracking-wider text-slate-500 font-mono mb-1">作答類型</label>
+                  <select 
+                    value={crudForm.type}
+                    onChange={(e) => setCrudForm({ ...crudForm, type: e.target.value })}
+                    className="w-full text-xs px-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 focus:outline-none focus:border-violet-500"
+                  >
+                    <option value="single">單選 (Single-choice)</option>
+                    <option value="multiple">多選 (Multiple-choice)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-2xs uppercase tracking-wider text-slate-500 font-mono mb-2">作答選項配置與權重分數加總</label>
+                <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2">
+                  {crudForm.options.map((opt, oIdx) => (
+                    <div key={oIdx} className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-2xs font-mono text-slate-600">選項 {oIdx + 1}</span>
+                        <input 
+                          type="text" 
+                          value={opt.text}
+                          onChange={(e) => {
+                            const nextOpts = [...crudForm.options];
+                            nextOpts[oIdx].text = e.target.value;
+                            setCrudForm({ ...crudForm, options: nextOpts });
+                          }}
+                          placeholder={`輸入選項 ${oIdx + 1} 文字...`}
+                          className="flex-grow text-2xs px-3 py-1.5 bg-slate-900 border border-slate-800 rounded text-slate-200 focus:outline-none"
+                          required
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        <div>
+                          <span className="text-3xs text-slate-500 font-mono">理性得分</span>
+                          <input 
+                            type="number" 
+                            min="0" max="100"
+                            value={opt.scores?.analytical ?? 0}
+                            onChange={(e) => {
+                              const nextOpts = [...crudForm.options];
+                              nextOpts[oIdx].scores = nextOpts[oIdx].scores || {};
+                              nextOpts[oIdx].scores.analytical = parseInt(e.target.value) || 0;
+                              setCrudForm({ ...crudForm, options: nextOpts });
+                            }}
+                            className="w-full text-center text-3xs py-1 bg-slate-900 border border-slate-800 rounded text-blue-400 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-3xs text-slate-500 font-mono">創新得分</span>
+                          <input 
+                            type="number" 
+                            min="0" max="100"
+                            value={opt.scores?.creative ?? 0}
+                            onChange={(e) => {
+                              const nextOpts = [...crudForm.options];
+                              nextOpts[oIdx].scores = nextOpts[oIdx].scores || {};
+                              nextOpts[oIdx].scores.creative = parseInt(e.target.value) || 0;
+                              setCrudForm({ ...crudForm, options: nextOpts });
+                            }}
+                            className="w-full text-center text-3xs py-1 bg-slate-900 border border-slate-800 rounded text-purple-400 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-3xs text-slate-500 font-mono">共情得分</span>
+                          <input 
+                            type="number" 
+                            min="0" max="100"
+                            value={opt.scores?.empathetic ?? 0}
+                            onChange={(e) => {
+                              const nextOpts = [...crudForm.options];
+                              nextOpts[oIdx].scores = nextOpts[oIdx].scores || {};
+                              nextOpts[oIdx].scores.empathetic = parseInt(e.target.value) || 0;
+                              setCrudForm({ ...crudForm, options: nextOpts });
+                            }}
+                            className="w-full text-center text-3xs py-1 bg-slate-900 border border-slate-800 rounded text-pink-400 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-3xs text-slate-500 font-mono">韌性得分</span>
+                          <input 
+                            type="number" 
+                            min="0" max="100"
+                            value={opt.scores?.resilient ?? 0}
+                            onChange={(e) => {
+                              const nextOpts = [...crudForm.options];
+                              nextOpts[oIdx].scores = nextOpts[oIdx].scores || {};
+                              nextOpts[oIdx].scores.resilient = parseInt(e.target.value) || 0;
+                              setCrudForm({ ...crudForm, options: nextOpts });
+                            }}
+                            className="w-full text-center text-3xs py-1 bg-slate-900 border border-slate-800 rounded text-amber-400 font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setCrudModal({ open: false, mode: 'add', question: null })}
+                  className="px-4 py-2 bg-slate-950 border border-slate-800 text-slate-400 text-xs rounded-lg hover:text-white"
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-gradient-to-r from-amber-600 to-amber-500 text-white text-xs font-semibold rounded-lg hover:brightness-110 shadow-[0_0_15px_rgba(217,119,6,0.3)]"
+                >
+                  確認儲存
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODAL 3: SHARING REPORT LINK GENERATOR
+          ========================================== */}
+      {shareModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl p-6 relative">
+            <button 
+              onClick={() => setShareModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-500 hover:text-white"
+            >
+              ✕
+            </button>
+            <span className="text-4xl block text-center mb-2">🪐</span>
+            <h3 className="text-base font-bold text-slate-100 text-center mb-1">廣播你的星域密碼</h3>
+            <p className="text-3xs text-slate-400 text-center mb-4">複製此連結，即可向星盟朋友圈共享你的多維度雷達分析！</p>
+
+            <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 mb-4 flex items-center justify-between text-xs font-mono text-slate-400 truncate">
+              <span>{`https://star-harmony.ai/report?id=${currentReport?.timestamp}`}</span>
+            </div>
+
+            <button 
+              onClick={() => {
+                document.execCommand('copy');
+                triggerToast('連結已複製至剪貼簿！可直接貼上分享', 'success');
+                setShareModalOpen(false);
+              }}
+              className="w-full py-2.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-violet-600 to-pink-600 text-white hover:opacity-90 transition-all"
+            >
+              🔗 一鍵複製分享連結
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          新增：MODAL 4: INTERACTIVE RESONANCE CHECKER (星際對齊雙人波頻)
+          ========================================== */}
+      {resonanceTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 border border-violet-500/30 w-full max-w-lg rounded-2xl p-6 relative overflow-hidden">
+            <button 
+              onClick={() => setResonanceTarget(null)}
+              className="absolute top-4 right-4 text-slate-500 hover:text-white"
+            >
+              ✕
+            </button>
+
+            <div className="text-center space-y-1 mb-4">
+              <span className="text-3xl block animate-pulse">📡</span>
+              <h3 className="text-base font-bold text-slate-100">雙人星區頻率共鳴對齊</h3>
+              <p className="text-3xs text-slate-400">
+                正在運算兩顆星靈魂波譜的重合度...
+              </p>
+            </div>
+
+            {/* RESONANCE DUAL RADAR OVERLAY */}
+            <div className="py-4 flex justify-center bg-slate-950/60 rounded-xl border border-slate-800 mb-4">
+              <RadarChart 
+                scores={resonanceTarget.user.scores} 
+                compareScores={resonanceTarget.target.scores}
+                size={220}
+              />
+            </div>
+
+            {/* Resonance Alignment Calculation */}
+            {(() => {
+              const s1 = resonanceTarget.user.scores;
+              const s2 = resonanceTarget.target.scores;
+              const diff = (
+                Math.abs((s1.analytical ?? 50) - (s2.analytical ?? 50)) +
+                Math.abs((s1.creative ?? 50) - (s2.creative ?? 50)) +
+                Math.abs((s1.empathetic ?? 50) - (s2.empathetic ?? 50)) +
+                Math.abs((s1.resilient ?? 50) - (s2.resilient ?? 50))
+              ) / 4;
+              // 共鳴度百分比
+              const matchPct = Math.max(10, Math.min(100, Math.round(100 - diff)));
+              
+              let evaluationText = "頻率相異，但正好互補彼此的盲區！";
+              if (matchPct >= 85) evaluationText = "極度完美的星際雙子，你們在全星區同頻共振！";
+              else if (matchPct >= 65) evaluationText = "波頻高度默契，非常適合跨星際協作前行。";
+
+              return (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center bg-violet-950/20 border border-violet-800/40 p-3 rounded-lg text-xs">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-base">{resonanceTarget.user.avatar}</span>
+                      <span className="font-bold">{resonanceTarget.user.displayName}</span>
+                    </div>
+                    <span className="text-violet-400 font-mono font-black text-sm">{matchPct}% 共鳴對齊度</span>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-bold">{resonanceTarget.target.displayName}</span>
+                      <span className="text-base">{resonanceTarget.target.avatar}</span>
+                    </div>
+                  </div>
+
+                  <p className="text-2xs text-slate-300 text-center italic bg-slate-950/50 p-2 rounded border border-slate-900">
+                    {evaluationText}
+                  </p>
+                </div>
+              );
+            })()}
+
+            <button 
+              onClick={() => setResonanceTarget(null)}
+              className="w-full mt-4 py-2 bg-slate-950 border border-slate-800 text-xs text-slate-400 rounded-lg hover:text-white transition-all"
+            >
+              關閉共鳴觀測
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          TOAST NOTIFICATION COMPONENT
+          ========================================== */}
+      {toast.show && (
+        <div className="fixed bottom-6 right-6 z-50 animate-bounce">
+          <div className={`px-4 py-3 rounded-lg border text-xs shadow-lg flex items-center space-x-2 ${
+            toast.type === 'success' 
+              ? 'bg-emerald-950 border-emerald-500 text-emerald-300' 
+              : toast.type === 'error'
+              ? 'bg-red-950 border-red-500 text-red-300'
+              : 'bg-indigo-950 border-indigo-500 text-indigo-300'
+          }`}>
+            <span>{toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : 'ℹ️'}</span>
+            <span className="font-semibold">{toast.message}</span>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+// Mount the app
+const rootEl = document.getElementById('root');
+if (rootEl) {
+  ReactDOM.createRoot(rootEl).render(<App />);
+} else {
+  console.error('Mount node #root not found');
+}
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>時空實驗室：逃脫協議 - 線上密室逃脫</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cyan: {
+              400: '#22d3ee',
+              500: '#06b6d4',
+              900: '#164e63',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+    }
+    .tech-font {
+      font-family: 'Share Tech Mono', monospace;
+    }
+    .neon-glow-emerald {
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+      border-color: rgba(16, 185, 129, 0.5);
+    }
+    .neon-glow-cyan {
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.2);
+      border-color: rgba(6, 182, 212, 0.5);
+    }
+    .neon-glow-rose {
+      box-shadow: 0 0 15px rgba(244, 63, 94, 0.2);
+      border-color: rgba(244, 63, 94, 0.5);
+    }
+    /* Pulsing lights */
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+    .light-pulse {
+      animation: pulse-slow 3s infinite;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-emerald-500 selection:text-slate-950 overflow-x-hidden">
+
+  <!-- 頂部導覽列與全局狀態 -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-40 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <span class="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] light-pulse"></span>
+        <h1 class="text-xl font-bold tracking-wider text-emerald-400 tech-font">CHRONOS_LAB_ESCAPE v2.4</h1>
+      </div>
+
+      <!-- 倒數計時器與控制項 -->
+      <div class="flex items-center gap-6">
+        <div class="flex items-center gap-2 bg-slate-950 px-4 py-1.5 rounded border border-slate-800">
+          <span class="text-xs text-slate-400 uppercase tracking-widest">時間限制</span>
+          <span id="gameTimer" class="tech-font text-2xl font-bold text-rose-500 tracking-widest">15:00</span>
+        </div>
+        
+        <!-- 音效控制 -->
+        <button id="toggleAudioBtn" class="p-2 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700 transition" title="切換音效">
+          <svg id="audioIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.693-3.693a1 1 0 011.104-.231zM13.586 5.586a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L15.172 10l-1.586-1.586a1 1 0 010-1.414z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主要遊玩區 -->
+  <main class="flex-grow max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
+    
+    <!-- 左側與中央：當前關卡互動主畫面 -->
+    <div class="lg:col-span-2 flex flex-col gap-6">
+      
+      <!-- 遊戲場景卡片 -->
+      <div id="gameCard" class="bg-slate-900 border border-slate-800 rounded-xl p-6 relative overflow-hidden flex-grow flex flex-col justify-between shadow-2xl">
+        <!-- 裝飾用網格背景 -->
+        <div class="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30 pointer-events-none"></div>
+
+        <div class="relative z-10 flex-grow flex flex-col">
+          <!-- 關卡標題 -->
+          <div class="flex justify-between items-center border-b border-slate-800 pb-4 mb-6">
+            <div>
+              <span id="levelSubtitle" class="text-xs uppercase tracking-widest text-emerald-500 font-bold">加載中...</span>
+              <h2 id="levelTitle" class="text-2xl font-bold text-white mt-1">請稍候</h2>
+            </div>
+            <div class="px-3 py-1 bg-slate-950 rounded text-xs text-slate-400 border border-slate-800">
+              <span id="levelProgress">0 / 5</span>
+            </div>
+          </div>
+
+          <!-- 互動主畫面容器 (內容由 JS 動態注入) -->
+          <div id="interactiveArea" class="flex-grow flex flex-col items-center justify-center min-h-[360px]">
+            <!-- 初始加載中 -->
+            <div class="text-center animate-pulse">
+              <div class="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p class="text-slate-400 tech-font">SYS_BOOT_LOADER...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 底部控制按鈕 -->
+        <div class="relative z-10 mt-6 pt-4 border-t border-slate-800 flex justify-between items-center gap-4">
+          <button id="hintBtn" class="px-4 py-2 bg-slate-850 hover:bg-slate-800 border border-slate-700 text-amber-400 rounded-lg text-sm font-semibold flex items-center gap-2 transition active:scale-95">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464a1 1 0 10-1.414-1.414l.707-.707a1 1 0 101.414 1.414l-.707.707zM5 10a1 1 0 11-2 0V9a1 1 0 112 0v1zM8 12a4 4 0 118 0c0 1.657-.672 3.157-1.757 4.243a1 1 0 01-1.415-1.415A2 2 0 1010 12a1 1 0 01-2 0z" />
+            </svg>
+            請求提示 (<span id="hintsLeft">2</span>)
+          </button>
+          
+          <div class="flex items-center gap-3">
+            <span id="levelClueStatus" class="text-xs text-slate-400"></span>
+            <button id="actionBtn" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded-lg shadow-lg shadow-emerald-900/20 hover:shadow-emerald-500/10 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+              確定送出
+            </button>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+
+    <!-- 右側：個人PDA與系統終端日誌 -->
+    <div class="flex flex-col gap-6">
+      
+      <!-- 線索與通訊日誌 -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col h-[320px] shadow-lg">
+        <h3 class="text-sm font-semibold text-emerald-400 tracking-wider mb-3 flex items-center gap-2 border-b border-slate-800 pb-2">
+          <span>⚙️</span> 個人 PDA 控制終端
+        </h3>
+        <!-- 日誌捲動視窗 -->
+        <div id="pdaLogs" class="flex-grow overflow-y-auto text-xs space-y-2 tech-font text-slate-300 pr-1">
+          <div class="text-emerald-500">> [系統初始化完成]...</div>
+          <div class="text-slate-500">> 正在等待玩家選擇探測裝置...</div>
+        </div>
+      </div>
+
+      <!-- 成就與收集要素 -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col flex-grow shadow-lg">
+        <h3 class="text-sm font-semibold text-cyan-400 tracking-wider mb-4 flex items-center gap-2 border-b border-slate-800 pb-2">
+          <span>🏆</span> 實驗室解密成就系統
+        </h3>
+        
+        <!-- 成就清單 -->
+        <div id="achievementList" class="space-y-3 overflow-y-auto flex-grow max-h-[250px] pr-1">
+          <!-- 成就項目模板將由 JS 渲染 -->
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- 全螢幕遮罩：登入 / 開始畫面 / 存檔讀取 -->
+  <div id="startOverlay" class="fixed inset-0 z-50 bg-slate-950/95 flex items-center justify-center p-4">
+    <div class="max-w-xl w-full bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl relative">
+      <div class="absolute top-4 right-4 text-xs text-slate-500 tech-font">CHRONOS_LAB_SYSTEM</div>
+      
+      <div class="text-center mb-8">
+        <div class="inline-flex p-4 bg-emerald-500/10 text-emerald-400 rounded-full mb-4 ring-2 ring-emerald-500/20">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        </div>
+        <h2 class="text-3xl font-extrabold text-white tracking-wider">時空實驗室：逃脫協議</h2>
+        <p class="text-slate-400 text-sm mt-2">一場扭曲時間與因果律的密室解謎挑戰</p>
+      </div>
+
+      <!-- 輸入名字 -->
+      <div class="space-y-4 mb-6">
+        <label class="block text-sm text-slate-300 font-bold">請輸入特工代號 (用於全球排行榜)：</label>
+        <input id="playerNameInput" type="text" placeholder="例: Agent_Alex" class="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-lg px-4 py-3 text-white font-semibold tech-font transition outline-none">
+      </div>
+
+      <!-- 選擇劇情分支特殊道具 -->
+      <div class="mb-8">
+        <label class="block text-sm text-slate-300 font-bold mb-3">選擇一件隨身探測裝置 (將會影響部分關卡加成)：</label>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <!-- 道具1 -->
+          <button onclick="selectGadget('scanner')" id="gadget-scanner" class="p-4 border border-slate-850 bg-slate-950 hover:bg-slate-900 rounded-xl text-left transition relative overflow-hidden group border-emerald-500/30">
+            <div class="text-emerald-400 font-bold text-sm flex items-center justify-between">
+              <span>時空掃描儀</span>
+              <span class="text-xs font-normal opacity-70">雷達</span>
+            </div>
+            <p class="text-slate-400 text-xs mt-2 leading-relaxed">第一關掃描範圍擴大 30%，並在接近目標線索時發出強光指引。</p>
+          </button>
+          <!-- 道具2 -->
+          <button onclick="selectGadget('decrypter')" id="gadget-decrypter" class="p-4 border border-slate-850 bg-slate-950 hover:bg-slate-900 rounded-xl text-left transition relative overflow-hidden group">
+            <div class="text-cyan-400 font-bold text-sm flex items-center justify-between">
+              <span>密碼解碼器</span>
+              <span class="text-xs font-normal opacity-70">分析</span>
+            </div>
+            <p class="text-slate-400 text-xs mt-2 leading-relaxed">第二關多功能密碼鎖會自動提示「齒輪密碼加總數值」，縮小破解範圍。</p>
+          </button>
+          <!-- 道具3 -->
+          <button onclick="selectGadget('booster')" id="gadget-booster" class="p-4 border border-slate-850 bg-slate-950 hover:bg-slate-900 rounded-xl text-left transition relative overflow-hidden group">
+            <div class="text-amber-400 font-bold text-sm flex items-center justify-between">
+              <span>記憶增強劑</span>
+              <span class="text-xs font-normal opacity-70">記憶</span>
+            </div>
+            <p class="text-slate-400 text-xs mt-2 leading-relaxed">第四關量子記憶翻牌在開始前，容許卡牌完整翻開展示 2.5 秒。</p>
+          </button>
+        </div>
+      </div>
+
+      <!-- 按鈕區 -->
+      <div id="startButtons" class="flex flex-col gap-3">
+        <button id="startGameBtn" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 text-center font-extrabold rounded-xl shadow-lg transition active:scale-95 text-lg">
+          開始逃脫協議
+        </button>
+        <button id="resumeGameBtn" class="hidden w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-slate-950 text-center font-extrabold rounded-xl shadow-lg transition active:scale-95">
+          偵測到舊進度！繼續上次逃脫
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 全螢幕遮罩：遊戲結局 & 全球排行榜展示 -->
+  <div id="endOverlay" class="fixed inset-0 z-50 bg-slate-950/95 flex items-center justify-center p-4 overflow-y-auto hidden">
+    <div class="max-w-4xl w-full bg-slate-900 border border-slate-800 p-6 md:p-8 rounded-2xl shadow-2xl relative my-8">
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- 左側：結局分析 -->
+        <div class="space-y-6">
+          <div class="border-b border-slate-800 pb-4">
+            <span class="text-xs uppercase tracking-widest text-emerald-400 font-bold">終端診斷結果</span>
+            <h2 id="endingTitle" class="text-3xl font-black text-white mt-1">完美結局：時空主宰者</h2>
+            <div id="endingBadge" class="inline-block px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded text-xs mt-2 font-bold border border-emerald-500/20">
+              PERFECT ESCAPE
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <p id="endingDescription" class="text-slate-300 text-sm leading-relaxed">
+              你成功在磁場瓦解前輸入了所有的核心修復代碼，不僅回到了原來的時空，甚至獲得了穿越平行宇宙的最高控制權...
+            </p>
+
+            <!-- 結算成績 -->
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 grid grid-cols-2 gap-4">
+              <div>
+                <span class="text-xs text-slate-500 block">剩餘時間</span>
+                <span id="finalTime" class="tech-font text-xl text-emerald-400 font-bold">12:34</span>
+              </div>
+              <div>
+                <span class="text-xs text-slate-500 block">提示使用次數</span>
+                <span id="finalHints" class="tech-font text-xl text-amber-400 font-bold">0 次</span>
+              </div>
+              <div>
+                <span class="text-xs text-slate-500 block">攜帶探測裝置</span>
+                <span id="finalGadget" class="tech-font text-sm text-cyan-400 font-bold">時空掃描儀</span>
+              </div>
+              <div>
+                <span class="text-xs text-slate-500 block">達成成就</span>
+                <span id="finalAchievements" class="tech-font text-sm text-pink-400 font-bold">5 / 6</span>
+              </div>
+            </div>
+          </div>
+
+          <button onclick="restartGame()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl border border-slate-700 transition active:scale-95">
+            重新挑戰時空
+          </button>
+        </div>
+
+        <!-- 右側：全球排行榜與即時儲存狀態 -->
+        <div class="flex flex-col h-[450px] border-t md:border-t-0 md:border-l border-slate-800 pt-6 md:pt-0 md:pl-8">
+          <h3 class="text-sm font-semibold text-cyan-400 tracking-wider mb-4 flex items-center gap-2 border-b border-slate-800 pb-2">
+            <span>🌐</span> 全球時空探員排行榜
+          </h3>
+          
+          <!-- 排行榜加載提示 -->
+          <div id="leaderboardLoading" class="text-center py-8 text-slate-500 text-xs tech-font">
+            正在連線至量子數據庫...
+          </div>
+
+          <!-- 排行榜清單 -->
+          <div id="leaderboardList" class="flex-grow overflow-y-auto space-y-2 pr-1 hidden">
+            <!-- 排行項目 -->
+          </div>
+
+          <div class="mt-4 pt-4 border-t border-slate-800 text-center">
+            <span class="text-[10px] text-slate-500">
+              * 排行榜採用 Firebase Firestore 即時資料庫保存。
+            </span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 成就解鎖通知提示框 -->
+  <div id="toastNotification" class="fixed bottom-6 left-6 z-50 bg-slate-900 border border-emerald-500 rounded-xl p-4 shadow-2xl flex items-center gap-4 transition-all duration-500 transform translate-y-24 opacity-0 max-w-sm pointer-events-none">
+    <div class="bg-emerald-500/10 text-emerald-400 p-2 rounded-lg">
+      🏆
+    </div>
+    <div>
+      <div class="text-[10px] text-emerald-400 font-bold tracking-widest uppercase">成就解鎖</div>
+      <div id="toastTitle" class="text-white text-sm font-bold">成就名稱</div>
+    </div>
+  </div>
+
+  <!-- 提示浮現確認對話框 -->
+  <div id="hintModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="max-w-md w-full bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-2xl">
+      <h3 class="text-lg font-bold text-amber-400 flex items-center gap-2">
+        <span>💡</span> 量子時空提示請求
+      </h3>
+      <p id="hintText" class="text-slate-300 text-sm mt-3 leading-relaxed">
+        當前通訊干擾過強...
+      </p>
+      <div class="mt-6 flex justify-end gap-3">
+        <button onclick="closeHintModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm transition">
+          關閉
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 頁尾 -->
+  <footer class="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-600">
+    <div>&copy; 2026 時空實驗室. 設計專為密室逃脫玩家優化。</div>
+  </footer>
+
+  <!-- Firebase SDK 與 遊戲邏輯 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, collection, getDocs, onSnapshot, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // -----------------------------------------------------
+    // 0. 第五關：5 組機密解密安全協議資料庫 (動態抽選題庫與專屬線索/提示)
+    // -----------------------------------------------------
+    const LEVEL5_PUZZLES = [
+      {
+        clues: `
+          <div class="text-rose-400 font-bold border-b border-rose-950/50 pb-1 mb-2">📄 機密安全協議日誌 (協議 A)</div>
+          <p>1. <span class="text-amber-400">黃色核心</span>必須緊鄰在 <span class="text-blue-400">藍色核心</span> 的左邊。</p>
+          <p>2. <span class="text-rose-400">紅色核心</span>必須放置在最右側的位置 (SLOT-04)。</p>
+          <p>3. <span class="text-emerald-400">綠色核心</span>不能放在最外側的邊緣插槽。</p>
+        `,
+        answer: '黃藍綠紅',
+        startOrder: ['紅', '綠', '藍', '黃'],
+        hint1: "『紅色在最右側』，所以第四格必為紅色。而『綠色不能在邊緣』，表示綠色要在中間第二格或第三格。",
+        hint2: "『黃色緊鄰在藍色左邊』，表示兩者必須形成[黃][藍]相連。由此可推論出唯一的配列為：[黃][藍][綠][紅]。"
+      },
+      {
+        clues: `
+          <div class="text-cyan-400 font-bold border-b border-cyan-950/50 pb-1 mb-2">📄 機密安全協議日誌 (協議 B)</div>
+          <p>1. <span class="text-emerald-400">綠色核心</span>必須緊鄰在 <span class="text-amber-400">黃色核心</span> 的左邊。</p>
+          <p>2. <span class="text-rose-400">紅色核心</span>必須放置在最左側的位置 (SLOT-01)。</p>
+          <p>3. <span class="text-blue-400">藍色核心</span>必須放在最右側的位置 (SLOT-04)。</p>
+        `,
+        answer: '紅綠黃藍',
+        startOrder: ['藍', '黃', '綠', '紅'],
+        hint1: "『紅色在最左側 (SLOT-01)』，且『藍色在最右側 (SLOT-04)』。這樣頭尾已經被固定住了，只要對齊中間兩格！",
+        hint2: "『綠色緊鄰在黃色的左邊』，意即中間兩格排法必須是 [綠][黃]。綜合上述：[紅][綠][黃][藍]。"
+      },
+      {
+        clues: `
+          <div class="text-amber-400 font-bold border-b border-amber-950/50 pb-1 mb-2">📄 機密安全協議日誌 (協議 C)</div>
+          <p>1. <span class="text-amber-400">黃色核心</span>必須緊鄰在 <span class="text-blue-400">藍色核心</span> 的右邊。</p>
+          <p>2. <span class="text-emerald-400">綠色核心</span>必須放在最右側的位置 (SLOT-04)。</p>
+          <p>3. <span class="text-rose-400">紅色核心</span>不能放在最左側 (SLOT-01)。</p>
+        `,
+        answer: '藍黃紅綠',
+        startOrder: ['綠', '紅', '黃', '藍'],
+        hint1: "『綠色在最右側 (SLOT-04)』。而『黃色緊鄰藍色右邊』，所以核心必須有 [藍][黃] 這組連續結構。",
+        hint2: "因為『紅色不允許在最左側』，且 [藍][黃] 必須連在一起，排在最左側兩格便是唯一可能。正確順序：[藍][黃][紅][綠]。"
+      },
+      {
+        clues: `
+          <div class="text-emerald-400 font-bold border-b border-emerald-950/50 pb-1 mb-2">📄 機密安全協議日誌 (協議 D)</div>
+          <p>1. <span class="text-rose-400">紅色核心</span>必須緊鄰在 <span class="text-blue-400">藍色核心</span> 的左邊。</p>
+          <p>2. <span class="text-emerald-400">綠色核心</span>必須放置在最左側 (SLOT-01)。</p>
+          <p>3. <span class="text-amber-400">黃色核心</span>必須放置在最右側 (SLOT-04)。</p>
+        `,
+        answer: '綠紅藍黃',
+        startOrder: ['黃', '藍', '紅', '綠'],
+        hint1: "『綠色固定在第一格』，『黃色固定在第四格』。中間第二與第三格剩下紅色和藍色。",
+        hint2: "『紅色必須在藍色的左邊並緊緊相鄰』，所以中間兩格依序是 [紅][藍]。正確配列：[綠][紅][藍][黃]。"
+      },
+      {
+        clues: `
+          <div class="text-pink-400 font-bold border-b border-pink-950/50 pb-1 mb-2">📄 機密安全協議日誌 (協議 E)</div>
+          <p>1. <span class="text-rose-400">紅色核心</span>必須緊鄰在 <span class="text-emerald-400">綠色核心</span> 的左邊。</p>
+          <p>2. <span class="text-amber-400">黃色核心</span>必須放在最左側 (SLOT-01)。</p>
+          <p>3. <span class="text-blue-400">藍色核心</span>必須放在最右側 (SLOT-04)。</p>
+        `,
+        answer: '黃紅綠藍',
+        startOrder: ['藍', '綠', '紅', '黃'],
+        hint1: "『黃色在最左 (SLOT-01)』，『藍色在最右 (SLOT-04)』。其餘兩格留給紅、綠兩色。",
+        hint2: "『紅色在綠色的左側相鄰』，意即中間部分排列為 [紅][綠]。正確順序為：[黃][紅][綠][藍]。"
+      }
+    ];
+
+    // -----------------------------------------------------
+    // 1. 全局遊戲狀態與配置 (修復深拷貝與重啟覆蓋邏輯)
+    // -----------------------------------------------------
+    let db = null;
+    let auth = null;
+    let user = null;
+    let appId = typeof __app_id !== 'undefined' ? __app_id : 'escape-room-chronos';
+    let level2StartTime = 0; // 用於第 2 關速解成就
+
+    // 預設原始遊戲狀態
+    const INITIAL_STATE = {
+      level: 0, // 0: 準備, 1-5: 關卡, 6: 結局
+      playerName: '',
+      selectedGadget: 'scanner', // scanner, decrypter, booster
+      timeRemaining: 900, // 15分鐘
+      hintsUsed: 0,
+      hintsUsedPerLevel: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+      achievements: [],
+      level1Clues: { '3': false, '7': false, '9': false },
+      level2Code: [0, 0, 0],
+      level3Solved: false,
+      level3Swaps: 0,
+      level4Matches: 0,
+      level4Mistakes: 0, 
+      level5PuzzleIdx: -1, // 新增：用於記錄當前隨機抽選的第5關協議索引
+      level5Order: ['紅', '綠', '藍', '黃'],
+    };
+
+    // 遊戲運行狀態採用深拷貝，避免 shallow copy mutate
+    let gameState = JSON.parse(JSON.stringify(INITIAL_STATE));
+    let gameInterval = null;
+    let audioMuted = false;
+    let selectedPuzzleTile = null;
+
+    // 成就定義
+    const ACHIEVEMENTS = {
+      'ACH_START': { title: '時空過客', desc: '成功挑選裝置並進入時空實驗室。', unlocked: false },
+      'ACH_CLUE_HUNTER': { title: '探查先鋒', desc: '在第一關的黑暗中找齊全部螢光標記。', unlocked: false },
+      'ACH_DECIPHER': { title: '齒輪大師', desc: '不使用解鎖器，全憑直覺在 45 秒內解開二關齒輪。', unlocked: false },
+      'ACH_PUZZLE_GOD': { title: '完美回路', desc: '以小於等於 10 次的交換次數完成三關電路拼接。', unlocked: false },
+      'ACH_BRAIN': { title: '量子大腦', desc: '在四關翻牌遊戲中以零失誤完美匹配成功。', unlocked: false },
+      'ACH_ESCAPE_PERFECT': { title: '時空主宰', desc: '在 8 分鐘內成功逃脫，且從未使用任何提示。', unlocked: false }
+    };
+
+    // 關卡詳細文字
+    const LEVEL_DATA = {
+      1: {
+        subtitle: "關卡一：時空掃描",
+        title: "找出隱藏在室內的螢光標記",
+        desc: "實驗室主電力中斷，只能利用時空掃描儀或隨身手電筒，在黑暗中移動光圈，搜尋牆面或物件上「隱藏的螢光數值（共 3 個）」。點擊發現的數字以利核心日誌分析密碼。",
+        hint1: "請在螢幕左側 Beaker、右側牆面裂縫、以及右下角日曆中細細搜索。",
+        hint2: "找到的 3 個數字分別為 3 (燒杯), 7 (牆裂痕), 9 (日曆)。"
+      },
+      2: {
+        subtitle: "關卡二：齒輪防護鎖",
+        title: "解開物理齒輪刻度",
+        desc: "前方的防盜閘門需要手動旋轉三枚物理齒輪。根據第一關發現的三枚螢光數字，並細讀密語提示以解開三位密碼。",
+        hint1: "日記提示：『密碼是由大到小排列的三位數』。第一關發現的數字是 3, 7, 9。",
+        hint2: "因此正確密碼齒輪配列為 [ 9 - 7 - 3 ]。"
+      },
+      3: {
+        subtitle: "關卡三：修復時空卡",
+        title: "重組高頻共振核心電路板",
+        desc: "時空穩定裝置的晶片因磁暴碎裂。點擊任意兩個相鄰或不相鄰的電路板碎片進行「位置互換」，當圖面拼合完成，晶片將再次通電。",
+        hint1: "可以參考兩側的實線邊框，通常實邊框是外牆線，藍色核心環在正中間。",
+        hint2: "當電路板完全拼合時，各碎片間的拼接接點將完全密合。只需將正圓中心部分在中間對齊。"
+      },
+      4: {
+        subtitle: "關卡四：量子記憶鏈結",
+        title: "激活備用能量胞",
+        desc: "時空門的備用能源由八組高能分子晶格組成。依序翻開卡牌，在兩兩相同分子相遇時觸發鏈結，成功消除所有卡牌以供能。",
+        hint1: "這是一場標準的翻牌對戰！冷靜記住每一個晶格符號的位置。",
+        hint2: "一共有八種符號（如：⚛️、☣️、⚙️等），每當翻錯時會重扣卡面，請慢下來記憶。"
+      },
+      5: {
+        subtitle: "關卡五：最終重力核配對",
+        title: "重置最高級安全協議",
+        desc: "時空引擎即將啟動，需要將四個量子核心（紅、黃、藍、綠）安插在正確順序的控制槽。請精讀安全協議日記，推理唯一的配列順序。",
+        // 提示內容將在運行時動態加載 LEVEL5_PUZZLES 的資料，不再採用硬編碼。
+        hint1: "",
+        hint2: ""
+      }
+    };
+
+    // -----------------------------------------------------
+    // 2. 高音質科幻環境氛圍音效合成器 (Web Audio API Generative Synth)
+    // -----------------------------------------------------
+    const AudioEngine = {
+      ctx: null,
+      bgmInterval: null,
+      activeNodes: [],
+      currentChordIdx: 0,
+      step: 0,
+      
+      // Chords 頻率定義 (Cm ➔ Ab ➔ Fm ➔ G)
+      chords: [
+        [130.81, 155.56, 196.00], // Cm (C3, Eb3, G3)
+        [103.83, 130.81, 155.56], // Ab (Ab2, C3, Eb3)
+        [87.31,  103.83, 130.81], // Fm (F2, Ab2, C3)
+        [98.00,  123.47, 146.83]  // G (G2, B2, D3)
+      ],
+
+      init() {
+        if (!this.ctx) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      },
+
+      playBeep(freq, type = 'sine', duration = 0.15, gainVal = 0.1) {
+        if (audioMuted) return;
+        this.init();
+        try {
+          const osc = this.ctx.createOscillator();
+          const gainNode = this.ctx.createGain();
+          
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          
+          gainNode.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+          
+          osc.connect(gainNode);
+          gainNode.connect(this.ctx.destination);
+          
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch (e) {
+          console.warn("音效播放失敗:", e);
+        }
+      },
+
+      playSuccess() {
+        this.playBeep(523.25, 'triangle', 0.15, 0.12); // C5
+        setTimeout(() => this.playBeep(659.25, 'triangle', 0.15, 0.12), 100); // E5
+        setTimeout(() => this.playBeep(783.99, 'triangle', 0.3, 0.12), 200); // G5
+      },
+
+      playFail() {
+        this.playBeep(150, 'sawtooth', 0.4, 0.15);
+      },
+
+      playTick() {
+        this.playBeep(1200, 'sine', 0.03, 0.05);
+      },
+
+      playReveal() {
+        this.playBeep(880, 'sine', 0.1, 0.08);
+      },
+
+      startBGM() {
+        if (audioMuted) return;
+        this.init();
+        this.stopBGM(); // 防止重疊播放
+
+        try {
+          this.currentChordIdx = 0;
+          this.triggerPadChord(this.chords[this.currentChordIdx]);
+
+          this.bgmInterval = setInterval(() => {
+            if (audioMuted) return;
+            
+            // 每 8 秒變換一次和弦 (Chords Pad)
+            if (this.step % 8 === 0 && this.step > 0) {
+              this.currentChordIdx = (this.currentChordIdx + 1) % this.chords.length;
+              this.triggerPadChord(this.chords[this.currentChordIdx]);
+            }
+
+            // 每 2 秒隨機彈奏一記輕微的和弦內音符 (Arpeggiator Pluck)
+            if (this.step % 2 === 0) {
+              const currentChordNotes = this.chords[this.currentChordIdx];
+              const baseNote = currentChordNotes[Math.floor(Math.random() * currentChordNotes.length)];
+              const octaveMultiplier = Math.random() > 0.5 ? 2 : 4; // 向上移 1 或 2 個八度
+              this.triggerArpeggioNote(baseNote * octaveMultiplier);
+            }
+
+            this.step++;
+          }, 1000);
+        } catch (e) {
+          console.warn("BGM 啟動失敗:", e);
+        }
+      },
+
+      triggerPadChord(notes) {
+        notes.forEach(freq => {
+          try {
+            const osc = this.ctx.createOscillator();
+            const gainNode = this.ctx.createGain();
+            const filter = this.ctx.createBiquadFilter();
+
+            osc.type = 'triangle'; 
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(260, this.ctx.currentTime); 
+
+            // 溫暖背景包絡線
+            const now = this.ctx.currentTime;
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.04, now + 2.0);
+            gainNode.gain.setValueAtTime(0.04, now + 6.0);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 8.0);
+
+            osc.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(this.ctx.destination);
+
+            osc.start(now);
+            osc.stop(now + 8.1);
+
+            this.activeNodes.push({ osc, gainNode });
+            setTimeout(() => {
+              this.activeNodes = this.activeNodes.filter(n => n.osc !== osc);
+            }, 8500);
+
+          } catch (e) {}
+        });
+      },
+
+      triggerArpeggioNote(freq) {
+        try {
+          const osc = this.ctx.createOscillator();
+          const gainNode = this.ctx.createGain();
+          const filter = this.ctx.createBiquadFilter();
+
+          osc.type = 'sine'; 
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(600, this.ctx.currentTime);
+
+          const now = this.ctx.currentTime;
+          gainNode.gain.setValueAtTime(0, now);
+          gainNode.gain.linearRampToValueAtTime(0.025, now + 0.05);
+          gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 1.5);
+
+          osc.connect(filter);
+          filter.connect(gainNode);
+          gainNode.connect(this.ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + 1.6);
+        } catch (e) {}
+      },
+
+      stopBGM() {
+        if (this.bgmInterval) {
+          clearInterval(this.bgmInterval);
+          this.bgmInterval = null;
+        }
+        this.activeNodes.forEach(node => {
+          try {
+            node.gainNode.gain.cancelScheduledValues(this.ctx.currentTime);
+            node.gainNode.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.5);
+            setTimeout(() => {
+              try { node.osc.stop(); } catch(e){}
+            }, 600);
+          } catch(e){}
+        });
+        this.activeNodes = [];
+        this.step = 0;
+      }
+    };
+
+    // -----------------------------------------------------
+    // 3. Firebase 與 雲端儲存初始化
+    // -----------------------------------------------------
+    async function initFirebase() {
+      try {
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+          const config = JSON.parse(__firebase_config);
+          const app = initializeApp(config);
+          auth = getAuth(app);
+          db = getFirestore(app);
+
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(auth);
+          }
+
+          onAuthStateChanged(auth, (u) => {
+            user = u;
+            if (user) {
+              console.log("Firebase 認證成功. 探員ID:", user.uid);
+              loadLeaderboard();
+            }
+          });
+        } else {
+          console.log("無 Firebase 設定檔，改為離線/純單機存檔模式。");
+          document.getElementById('leaderboardLoading').innerText = "離線模式，無法同步全球排行。";
+        }
+      } catch (e) {
+        console.error("Firebase 初始化失敗，改為離線模式:", e);
+        document.getElementById('leaderboardLoading').innerText = "伺服器連接失敗。";
+      }
+    }
+
+    // -----------------------------------------------------
+    // 4. 全球排行榜讀取與上傳 (遵循 RULE 1 & 2)
+    // -----------------------------------------------------
+    async function loadLeaderboard() {
+      if (!db || !user) return;
+      try {
+        const loadingEl = document.getElementById('leaderboardLoading');
+        const listEl = document.getElementById('leaderboardList');
+        
+        loadingEl.style.display = 'block';
+        listEl.style.display = 'none';
+
+        const scoresRef = collection(db, 'artifacts', appId, 'public', 'data', 'scores');
+        const snapshot = await getDocs(scoresRef);
+        const rawList = [];
+        snapshot.forEach((doc) => {
+          rawList.push(doc.data());
+        });
+
+        rawList.sort((a, b) => b.timeRemaining - a.timeRemaining);
+
+        listEl.innerHTML = '';
+        if (rawList.length === 0) {
+          listEl.innerHTML = `<div class="text-slate-500 text-center py-4 text-xs">尚無探員解鎖。成為第一個！</div>`;
+        } else {
+          rawList.slice(0, 10).forEach((score, index) => {
+            const min = Math.floor(score.timeRemaining / 60);
+            const sec = score.timeRemaining % 60;
+            const formattedTime = `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+            
+            const item = document.createElement('div');
+            item.className = `flex justify-between items-center p-2 rounded text-xs tech-font ${
+              score.userId === user.uid ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-slate-950/60'
+            }`;
+            
+            item.innerHTML = `
+              <div class="flex items-center gap-2">
+                <span class="w-5 text-center font-bold text-slate-500">${index + 1}</span>
+                <span class="font-semibold text-slate-200">${escapeHTML(score.name || '未知探員')}</span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 border border-slate-700">${score.ending || '重回現實'}</span>
+              </div>
+              <div class="text-emerald-400 font-bold">
+                ${formattedTime} <span class="text-[9px] text-slate-500">(${score.hintsUsed} 提示)</span>
+              </div>
+            `;
+            listEl.appendChild(item);
+          });
+        }
+        
+        loadingEl.style.display = 'none';
+        listEl.style.display = 'block';
+      } catch (err) {
+        console.error("載入排行榜出錯:", err);
+        document.getElementById('leaderboardLoading').innerText = "排行量子數據加載失敗。";
+      }
+    }
+
+    async function submitScoreToDatabase() {
+      if (!db || !user) return;
+      try {
+        const scoresRef = collection(db, 'artifacts', appId, 'public', 'data', 'scores');
+        
+        let endingType = "重回現實";
+        if (gameState.timeRemaining > 480 && gameState.hintsUsed === 0) {
+          endingType = "時空主宰者";
+        } else if (gameState.timeRemaining === 0) {
+          endingType = "迷失永恆";
+        }
+
+        await addDoc(scoresRef, {
+          userId: user.uid,
+          name: gameState.playerName || "無名探員",
+          timeRemaining: gameState.timeRemaining,
+          hintsUsed: gameState.hintsUsed,
+          ending: endingType,
+          timestamp: new Date().toISOString()
+        });
+
+        await loadLeaderboard();
+      } catch (e) {
+        console.error("上傳成績失敗:", e);
+      }
+    }
+
+    // -----------------------------------------------------
+    // 5. 斷點存檔功能 (Local Storage)
+    // -----------------------------------------------------
+    function saveToLocalStorage() {
+      localStorage.setItem('escape_room_save_state', JSON.stringify(gameState));
+    }
+
+    function checkLocalStorageSave() {
+      const saved = localStorage.getItem('escape_room_save_state');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.level > 0 && parsed.level <= 5) {
+            document.getElementById('resumeGameBtn').classList.remove('hidden');
+          }
+        } catch (e) {}
+      }
+    }
+
+    // -----------------------------------------------------
+    // 6. 核心遊玩邏輯與成就系統
+    // -----------------------------------------------------
+    window.selectGadget = function(gadgetType) {
+      gameState.selectedGadget = gadgetType;
+      document.querySelectorAll('[id^="gadget-"]').forEach(el => {
+        el.classList.remove('border-emerald-500', 'border-cyan-500', 'border-amber-500', 'ring-2');
+        el.classList.add('border-slate-800');
+      });
+      const selectedEl = document.getElementById(`gadget-${gadgetType}`);
+      selectedEl.classList.remove('border-slate-800');
+      if (gadgetType === 'scanner') selectedEl.classList.add('border-emerald-500', 'ring-2', 'ring-emerald-500/20');
+      if (gadgetType === 'decrypter') selectedEl.classList.add('border-cyan-500', 'ring-2', 'ring-cyan-500/20');
+      if (gadgetType === 'booster') selectedEl.classList.add('border-amber-500', 'ring-2', 'ring-amber-500/20');
+      
+      AudioEngine.playBeep(440, 'sine', 0.1, 0.05);
+    };
+
+    // 成就解鎖
+    function unlockAchievement(id) {
+      if (ACHIEVEMENTS[id] && !gameState.achievements.includes(id)) {
+        gameState.achievements.push(id);
+        saveToLocalStorage();
+        renderAchievements();
+        
+        const toast = document.getElementById('toastNotification');
+        document.getElementById('toastTitle').innerText = ACHIEVEMENTS[id].title;
+        toast.classList.remove('translate-y-24', 'opacity-0');
+        
+        AudioEngine.playSuccess();
+
+        setTimeout(() => {
+          toast.classList.add('translate-y-24', 'opacity-0');
+        }, 3000);
+      }
+    }
+
+    function addLog(text, colorClass = "text-slate-300") {
+      const logs = document.getElementById('pdaLogs');
+      const logItem = document.createElement('div');
+      logItem.className = `${colorClass}`;
+      logItem.innerHTML = `> ${text}`;
+      logs.appendChild(logItem);
+      logs.scrollTop = logs.scrollHeight;
+    }
+
+    // 渲染成就面板
+    function renderAchievements() {
+      const container = document.getElementById('achievementList');
+      container.innerHTML = '';
+      Object.keys(ACHIEVEMENTS).forEach(key => {
+        const ach = ACHIEVEMENTS[key];
+        const isUnlocked = gameState.achievements.includes(key);
+        
+        const item = document.createElement('div');
+        item.className = `flex gap-3 p-2.5 rounded-lg border transition ${
+          isUnlocked 
+            ? 'bg-cyan-950/20 border-cyan-800/40 text-cyan-200' 
+            : 'bg-slate-950/40 border-slate-900 text-slate-500'
+        }`;
+        
+        item.innerHTML = `
+          <div class="text-xl shrink-0">${isUnlocked ? '💠' : '🔒'}</div>
+          <div>
+            <div class="text-xs font-bold ${isUnlocked ? 'text-cyan-400' : 'text-slate-500'}">${ach.title}</div>
+            <div class="text-[10px] mt-0.5 leading-tight">${ach.desc}</div>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    // 倒數計時控制
+    function startTimer() {
+      clearInterval(gameInterval);
+      gameInterval = setInterval(() => {
+        if (gameState.timeRemaining > 0) {
+          gameState.timeRemaining--;
+          updateTimerDisplay();
+          
+          if (gameState.timeRemaining <= 60) {
+            AudioEngine.playTick();
+          }
+
+          if (gameState.timeRemaining % 10 === 0) {
+            saveToLocalStorage();
+          }
+        } else {
+          clearInterval(gameInterval);
+          triggerEnding(false);
+        }
+      }, 1000);
+    }
+
+    function updateTimerDisplay() {
+      const min = Math.floor(gameState.timeRemaining / 60);
+      const sec = gameState.timeRemaining % 60;
+      document.getElementById('gameTimer').innerText = `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+    }
+
+    // -----------------------------------------------------
+    // 7. 關卡渲染與交互核心
+    // -----------------------------------------------------
+    function loadLevel(levelNum) {
+      gameState.level = levelNum;
+      saveToLocalStorage();
+      
+      const config = LEVEL_DATA[levelNum];
+      if (!config) return;
+
+      document.getElementById('levelSubtitle').innerText = config.subtitle;
+      document.getElementById('levelTitle').innerText = config.title;
+      document.getElementById('levelProgress').innerText = `${levelNum} / 5`;
+      document.getElementById('levelClueStatus').innerText = "";
+
+      const actionBtn = document.getElementById('actionBtn');
+      actionBtn.disabled = false;
+      actionBtn.innerText = "驗證解密";
+
+      updateHintsButtonUI();
+
+      addLog(`開始解碼 [${config.subtitle}] ...`, "text-cyan-400");
+
+      const container = document.getElementById('interactiveArea');
+      container.innerHTML = '';
+
+      switch (levelNum) {
+        case 1:
+          setupLevel1(container);
+          break;
+        case 2:
+          level2StartTime = Date.now(); 
+          setupLevel2(container);
+          break;
+        case 3:
+          setupLevel3(container);
+          break;
+        case 4:
+          setupLevel4(container);
+          break;
+        case 5:
+          setupLevel5(container);
+          break;
+      }
+    }
+
+    function updateHintsButtonUI() {
+      const lv = gameState.level;
+      if (!gameState.hintsUsedPerLevel) {
+        gameState.hintsUsedPerLevel = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      }
+      const left = 2 - (gameState.hintsUsedPerLevel[lv] || 0);
+      document.getElementById('hintsLeft').innerText = left;
+    }
+
+    // --- 第一關：時空掃描 (Canvas Spotlight) ---
+    let l1Canvas, l1Ctx;
+    let scannerTargets = {
+      '3': { x: 140, y: 190, r: 25, found: false, name: "螢光刻痕-燒杯B12" },
+      '7': { x: 425, y: 110, r: 25, found: false, name: "時空裂縫螢光-7" },
+      '9': { x: 310, y: 265, r: 25, found: false, name: "斑駁日曆-9" }
+    };
+    let mouseX = 300, mouseY = 175;
+
+    function setupLevel1(container) {
+      Object.keys(scannerTargets).forEach(k => {
+        scannerTargets[k].found = gameState.level1Clues[k] || false;
+      });
+
+      const wrapper = document.createElement('div');
+      wrapper.className = "w-full max-w-lg flex flex-col items-center gap-3";
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = 500;
+      canvas.height = 320;
+      canvas.className = "bg-slate-950 border border-slate-800 rounded-lg max-w-full cursor-none shadow-inner";
+      wrapper.appendChild(canvas);
+
+      const statusText = document.createElement('div');
+      statusText.className = "text-xs text-slate-400 font-bold tracking-wide flex gap-4";
+      statusText.innerHTML = `
+        <span id="clue1_status">燒杯 [未偵測]</span>
+        <span id="clue2_status">牆面裂縫 [未偵測]</span>
+        <span id="clue3_status">日曆 [未偵測]</span>
+      `;
+      wrapper.appendChild(statusText);
+
+      container.appendChild(wrapper);
+
+      l1Canvas = canvas;
+      l1Ctx = canvas.getContext('2d');
+
+      const handleMove = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        mouseX = (clientX - rect.left) * (canvas.width / rect.width);
+        mouseY = (clientY - rect.top) * (canvas.height / rect.height);
+        drawLevel1Canvas();
+      };
+
+      canvas.addEventListener('mousemove', handleMove);
+      canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        handleMove(e);
+      }, { passive: false });
+
+      const handleClick = (e) => {
+        if (e) {
+          const rect = canvas.getBoundingClientRect();
+          const touch = e.touches?.[0] || e.changedTouches?.[0];
+          const clientX = touch ? touch.clientX : e.clientX;
+          const clientY = touch ? touch.clientY : e.clientY;
+          if (clientX !== undefined && clientY !== undefined) {
+            mouseX = (clientX - rect.left) * (canvas.width / rect.width);
+            mouseY = (clientY - rect.top) * (canvas.height / rect.height);
+          }
+        }
+
+        Object.keys(scannerTargets).forEach(key => {
+          const target = scannerTargets[key];
+          const dist = Math.hypot(mouseX - target.x, mouseY - target.y);
+          if (dist < target.r && !target.found) {
+            target.found = true;
+            gameState.level1Clues[key] = true;
+            saveToLocalStorage();
+            AudioEngine.playSuccess();
+            addLog(`發現核心線索：${target.name} (數字 ${key})`, "text-emerald-400");
+          }
+        });
+        updateL1Status();
+        drawLevel1Canvas();
+        checkL1Finish();
+      };
+
+      canvas.addEventListener('mousedown', handleClick);
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        handleClick(e);
+      }, { passive: false });
+
+      updateL1Status();
+      drawLevel1Canvas();
+
+      const actionBtn = document.getElementById('actionBtn');
+      actionBtn.innerText = "直接啟動下一步";
+      actionBtn.onclick = () => {
+        let allFound = Object.values(scannerTargets).every(t => t.found);
+        if (allFound) {
+          AudioEngine.playSuccess();
+          unlockAchievement('ACH_CLUE_HUNTER');
+          loadLevel(2);
+        } else {
+          AudioEngine.playFail();
+          addLog("掃描尚未完成，請繼續找出所有 3 組螢光訊號！", "text-rose-500");
+        }
+      };
+    }
+
+    function updateL1Status() {
+      document.getElementById('clue1_status').innerHTML = scannerTargets['3'].found 
+        ? '<span class="text-emerald-400">🧪 燒杯 [3] 已解碼</span>' 
+        : '<span class="text-slate-600">🧪 燒杯 [未偵測]</span>';
+      document.getElementById('clue2_status').innerHTML = scannerTargets['7'].found 
+        ? '<span class="text-emerald-400">⚡ 牆縫 [7] 已解碼</span>' 
+        : '<span class="text-slate-600">⚡ 牆縫 [未偵測]</span>';
+      document.getElementById('clue3_status').innerHTML = scannerTargets['9'].found 
+        ? '<span class="text-emerald-400">📅 日曆 [9] 已解碼</span>' 
+        : '<span class="text-slate-600">📅 日曆 [未偵測]</span>';
+    }
+
+    function checkL1Finish() {
+      let allFound = Object.values(scannerTargets).every(t => t.found);
+      if (allFound) {
+        addLog("系統偵測到全數螢光信號，第一關通關！", "text-emerald-400");
+        unlockAchievement('ACH_CLUE_HUNTER');
+        setTimeout(() => loadLevel(2), 1500);
+      }
+    }
+
+    function drawLevel1Canvas() {
+      if (!l1Ctx) return;
+      
+      const w = l1Canvas.width;
+      const h = l1Canvas.height;
+
+      l1Ctx.fillStyle = '#020617';
+      l1Ctx.fillRect(0, 0, w, h);
+
+      l1Ctx.save();
+      l1Ctx.beginPath();
+      const r = gameState.selectedGadget === 'scanner' ? 75 : 55;
+      l1Ctx.arc(mouseX, mouseY, r, 0, Math.PI * 2);
+      l1Ctx.clip();
+
+      l1Ctx.fillStyle = '#1e293b';
+      l1Ctx.fillRect(0, 0, w, h);
+
+      l1Ctx.strokeStyle = '#334155';
+      l1Ctx.lineWidth = 1;
+      for (let i = 0; i < w; i += 40) {
+        l1Ctx.beginPath(); l1Ctx.moveTo(i, 0); l1Ctx.lineTo(i, h); l1Ctx.stroke();
+      }
+      for (let j = 0; j < h; j += 40) {
+        l1Ctx.beginPath(); l1Ctx.moveTo(0, j); l1Ctx.lineTo(w, j); l1Ctx.stroke();
+      }
+
+      l1Ctx.fillStyle = '#475569';
+      l1Ctx.fillRect(40, 200, 160, 120); 
+
+      l1Ctx.fillStyle = scannerTargets['3'].found ? '#10b981' : '#f59e0b';
+      l1Ctx.font = 'bold 13px monospace';
+      l1Ctx.fillText("🧪 Beaker B-12", 100, 150);
+      l1Ctx.font = 'bold 36px monospace';
+      l1Ctx.fillText("3", scannerTargets['3'].x - 10, scannerTargets['3'].y + 12);
+
+      l1Ctx.strokeStyle = '#475569';
+      l1Ctx.lineWidth = 3;
+      l1Ctx.beginPath();
+      l1Ctx.moveTo(380, 40); l1Ctx.lineTo(410, 80); l1Ctx.lineTo(430, 150);
+      l1Ctx.stroke();
+      l1Ctx.fillStyle = scannerTargets['7'].found ? '#10b981' : '#ec4899';
+      l1Ctx.font = 'bold 36px monospace';
+      l1Ctx.fillText("7", scannerTargets['7'].x - 10, scannerTargets['7'].y + 12);
+
+      l1Ctx.fillStyle = '#f1f5f9';
+      l1Ctx.fillRect(280, 220, 80, 70);
+      l1Ctx.fillStyle = '#ef4444';
+      l1Ctx.fillRect(280, 220, 80, 15);
+      l1Ctx.fillStyle = scannerTargets['9'].found ? '#10b981' : '#3b82f6';
+      l1Ctx.font = 'bold 36px monospace';
+      l1Ctx.fillText("9", scannerTargets['9'].x - 10, scannerTargets['9'].y + 12);
+
+      l1Ctx.restore();
+
+      let nearClue = false;
+      if (gameState.selectedGadget === 'scanner') {
+        Object.keys(scannerTargets).forEach(key => {
+          const t = scannerTargets[key];
+          if (!t.found && Math.hypot(mouseX - t.x, mouseY - t.y) < 120) {
+            nearClue = true;
+          }
+        });
+      }
+
+      l1Ctx.beginPath();
+      l1Ctx.arc(mouseX, mouseY, r, 0, Math.PI * 2);
+      l1Ctx.strokeStyle = nearClue ? 'rgba(16, 185, 129, 0.8)' : 'rgba(6, 182, 212, 0.4)';
+      l1Ctx.lineWidth = nearClue ? 4 : 2;
+      l1Ctx.stroke();
+    }
+
+    // --- 第二關：齒輪密碼鎖 (Keypad Dial Lock) ---
+    function setupLevel2(container) {
+      const wrapper = document.createElement('div');
+      wrapper.className = "flex flex-col items-center gap-6 w-full max-w-sm";
+
+      if (gameState.selectedGadget === 'decrypter') {
+        const bonusPanel = document.createElement('div');
+        bonusPanel.className = "p-3 bg-cyan-950/20 border border-cyan-800/50 rounded-lg text-xs text-cyan-300 w-full text-center";
+        bonusPanel.innerText = "📟 解碼器分析成功：『密碼三位數加總值為 19』";
+        wrapper.appendChild(bonusPanel);
+      }
+
+      const dialsGrid = document.createElement('div');
+      dialsGrid.className = "flex gap-6 justify-center items-center my-4";
+
+      for (let i = 0; i < 3; i++) {
+        const dialWrapper = document.createElement('div');
+        dialWrapper.className = "flex flex-col items-center gap-2";
+
+        const upBtn = document.createElement('button');
+        upBtn.className = "p-2 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 transition active:scale-90 font-bold w-12 text-center";
+        upBtn.innerText = "▲";
+        upBtn.onclick = () => {
+          gameState.level2Code[i] = (gameState.level2Code[i] + 1) % 10;
+          AudioEngine.playBeep(600 + i*100, 'sine', 0.05, 0.05);
+          updateDialUI(i);
+        };
+
+        const display = document.createElement('div');
+        display.id = `dial-${i}`;
+        display.className = "w-16 h-20 bg-slate-950 border-2 border-slate-700 text-3xl font-bold flex items-center justify-center rounded-xl text-emerald-400 tech-font shadow-lg shadow-emerald-950/20";
+        display.innerText = gameState.level2Code[i];
+
+        const downBtn = document.createElement('button');
+        downBtn.className = "p-2 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 transition active:scale-90 font-bold w-12 text-center";
+        downBtn.innerText = "▼";
+        downBtn.onclick = () => {
+          gameState.level2Code[i] = (gameState.level2Code[i] - 1 + 10) % 10;
+          AudioEngine.playBeep(600 + i*100, 'sine', 0.05, 0.05);
+          updateDialUI(i);
+        };
+
+        dialWrapper.appendChild(upBtn);
+        dialWrapper.appendChild(display);
+        dialWrapper.appendChild(downBtn);
+        dialsGrid.appendChild(dialWrapper);
+      }
+      wrapper.appendChild(dialsGrid);
+
+      const note = document.createElement('p');
+      note.className = "text-xs text-slate-400 bg-slate-950 p-3 rounded border border-slate-900 leading-relaxed text-center";
+      note.innerHTML = `📓 時空日誌提示：<br>『密碼是由第一關尋得的 3 枚數字，<strong class="text-emerald-400">依數值由大到小的順序</strong>排列。』`;
+      wrapper.appendChild(note);
+
+      container.appendChild(wrapper);
+
+      function updateDialUI(index) {
+        document.getElementById(`dial-${index}`).innerText = gameState.level2Code[index];
+        saveToLocalStorage();
+      }
+
+      const actionBtn = document.getElementById('actionBtn');
+      actionBtn.onclick = () => {
+        const codeStr = gameState.level2Code.join('');
+        if (codeStr === '973') {
+          AudioEngine.playSuccess();
+          addLog("防盜閘門鎖定解除！齒輪安全鎖成功破解。", "text-emerald-400");
+          
+          const elapsedSeconds = (Date.now() - level2StartTime) / 1000;
+          if (gameState.selectedGadget !== 'decrypter' && elapsedSeconds <= 45) {
+            unlockAchievement('ACH_DECIPHER');
+          } else if (gameState.selectedGadget !== 'decrypter') {
+            addLog(`通關費時 ${Math.round(elapsedSeconds)} 秒，未能在 45 秒極速限制內完成，無法解鎖「齒輪大師」成就。`, "text-slate-400");
+          }
+
+          loadLevel(3);
+        } else {
+          AudioEngine.playFail();
+          addLog("警告：密碼錯誤！齒輪鎖死警報。請重新檢查順序與刻度。", "text-rose-500");
+        }
+      };
+    }
+
+    // --- 第三關：修復時空卡 (Interactive Blueprint Puzzle) ---
+    const blueprintCanvas = document.createElement('canvas');
+    blueprintCanvas.width = 300;
+    blueprintCanvas.height = 300;
+
+    function predrawBlueprint() {
+      const bCtx = blueprintCanvas.getContext('2d');
+      bCtx.fillStyle = '#020617';
+      bCtx.fillRect(0, 0, 300, 300);
+      
+      bCtx.strokeStyle = 'rgba(16, 185, 129, 0.15)';
+      bCtx.lineWidth = 1;
+      for (let i = 0; i < 300; i += 15) {
+        bCtx.beginPath(); bCtx.moveTo(i, 0); bCtx.lineTo(i, 300); bCtx.stroke();
+        bCtx.beginPath(); bCtx.moveTo(0, i); bCtx.lineTo(300, i); bCtx.stroke();
+      }
+
+      bCtx.strokeStyle = '#06b6d4';
+      bCtx.lineWidth = 3;
+      bCtx.strokeRect(6, 6, 288, 288);
+
+      bCtx.strokeStyle = '#10b981';
+      bCtx.lineWidth = 4;
+      bCtx.beginPath();
+      bCtx.arc(150, 150, 75, 0, Math.PI * 2);
+      bCtx.stroke();
+
+      bCtx.fillStyle = '#f43f5e';
+      bCtx.fillRect(50, 50, 20, 20);
+      bCtx.fillRect(230, 230, 20, 20);
+
+      bCtx.strokeStyle = '#38bdf8';
+      bCtx.lineWidth = 2;
+      bCtx.beginPath();
+      bCtx.moveTo(150, 6); bCtx.lineTo(150, 75);
+      bCtx.moveTo(150, 225); bCtx.lineTo(150, 294);
+      bCtx.moveTo(6, 150); bCtx.lineTo(75, 150);
+      bCtx.moveTo(225, 150); bCtx.lineTo(294, 150);
+      bCtx.stroke();
+
+      bCtx.fillStyle = '#38bdf8';
+      bCtx.font = 'bold 12px monospace';
+      bCtx.fillText("CHRONOS CORE", 110, 145);
+      bCtx.font = '9px monospace';
+      bCtx.fillText("SYS_CONNECTED", 114, 165);
+    }
+
+    function setupLevel3(container) {
+      predrawBlueprint();
+      
+      if (!gameState.puzzleState || gameState.puzzleState.length !== 9 || isPuzzleSolved()) {
+        gameState.puzzleState = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+        shufflePuzzle();
+        gameState.level3Swaps = 0;
+      }
+
+      selectedPuzzleTile = null;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = "flex flex-col items-center gap-4 w-full";
+
+      const grid = document.createElement('div');
+      grid.id = "puzzleGrid";
+      grid.className = "grid grid-cols-3 gap-1 bg-slate-950 p-2 rounded-xl border border-slate-800 shadow-xl max-w-[320px] w-full";
+      wrapper.appendChild(grid);
+
+      const stats = document.createElement('div');
+      stats.id = "puzzleStats";
+      stats.className = "text-xs text-slate-400 tech-font";
+      stats.innerText = `交換次數: ${gameState.level3Swaps} 次`;
+      wrapper.appendChild(stats);
+
+      container.appendChild(wrapper);
+
+      renderPuzzleGrid();
+
+      const actionBtn = document.getElementById('actionBtn');
+      actionBtn.onclick = () => {
+        if (isPuzzleSolved()) {
+          AudioEngine.playSuccess();
+          addLog("完美修復！核心卡共振率達 100%。", "text-emerald-400");
+          if (gameState.level3Swaps <= 10) {
+            unlockAchievement('ACH_PUZZLE_GOD');
+          }
+          loadLevel(4);
+        } else {
+          AudioEngine.playFail();
+          addLog("電路並未正確連通，請嘗試將各圖片拼貼正確！", "text-rose-500");
+        }
+      };
+    }
+
+    function shufflePuzzle() {
+      for (let i = gameState.puzzleState.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [gameState.puzzleState[i], gameState.puzzleState[j]] = [gameState.puzzleState[j], gameState.puzzleState[i]];
+      }
+      if (isPuzzleSolved()) {
+        shufflePuzzle();
+      }
+    }
+
+    function isPuzzleSolved() {
+      for (let i = 0; i < 9; i++) {
+        if (gameState.puzzleState[i] !== i) return false;
+      }
+      return true;
+    }
+
+    function renderPuzzleGrid() {
+      const grid = document.getElementById('puzzleGrid');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      for (let i = 0; i < 9; i++) {
+        const pieceIndex = gameState.puzzleState[i];
+        
+        const tile = document.createElement('div');
+        tile.className = `aspect-square relative cursor-pointer overflow-hidden border transition ${
+          selectedPuzzleTile === i ? 'border-amber-400 ring-2 ring-amber-400/30 scale-95' : 'border-slate-800 hover:border-slate-600'
+        }`;
+        tile.onclick = () => handlePuzzleClick(i);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 100;
+        canvas.height = 100;
+        canvas.className = "w-full h-full block";
+        const ctx = canvas.getContext('2d');
+
+        const sx = (pieceIndex % 3) * 100;
+        const sy = Math.floor(pieceIndex / 3) * 100;
+        ctx.drawImage(blueprintCanvas, sx, sy, 100, 100, 0, 0, 100, 100);
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.strokeRect(0, 0, 100, 100);
+
+        tile.appendChild(canvas);
+        grid.appendChild(tile);
+      }
+    }
+
+    function handlePuzzleClick(index) {
+      if (selectedPuzzleTile === null) {
+        selectedPuzzleTile = index;
+        AudioEngine.playBeep(400, 'sine', 0.05, 0.05);
+        renderPuzzleGrid();
+      } else {
+        if (selectedPuzzleTile !== index) {
+          [gameState.puzzleState[selectedPuzzleTile], gameState.puzzleState[index]] = [gameState.puzzleState[index], gameState.puzzleState[selectedPuzzleTile]];
+          gameState.level3Swaps++;
+          AudioEngine.playBeep(500, 'sine', 0.08, 0.05);
+          
+          document.getElementById('puzzleStats').innerText = `交換次數: ${gameState.level3Swaps} 次`;
+          
+          if (isPuzzleSolved()) {
+            addLog("拼圖完全咬合！電路開始發光通電。", "text-emerald-400");
+          }
+        }
+        selectedPuzzleTile = null;
+        saveToLocalStorage();
+        renderPuzzleGrid();
+      }
+    }
+
+    // --- 第四關：量子記憶鏈結 (Memory Match) ---
+    const MEMORY_SYMBOLS = ["🧬", "⚛️", "☣️", "⚙️", "🔋", "🛰️", "🛸", "🌀"];
+    let flippedCards = [];
+    let lockCardBoard = false;
+    let cardPairsData = [];
+
+    function setupLevel4(container) {
+      flippedCards = [];
+      lockCardBoard = false;
+
+      const deck = [...MEMORY_SYMBOLS, ...MEMORY_SYMBOLS];
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+
+      cardPairsData = deck.map((sym, index) => ({
+        id: index,
+        symbol: sym,
+        matched: false,
+        flipped: false
+      }));
+
+      const wrapper = document.createElement('div');
+      wrapper.className = "flex flex-col items-center gap-4 w-full";
+
+      const grid = document.createElement('div');
+      grid.id = "cardGrid";
+      grid.className = "grid grid-cols-4 gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800 max-w-[320px] w-full";
+      wrapper.appendChild(grid);
+
+      container.appendChild(wrapper);
+
+      renderCardGrid();
+
+      if (gameState.selectedGadget === 'booster') {
+        lockCardBoard = true;
+        addLog("【記憶增強劑】生效：量子微泡在卡牌表面重現 2.5 秒！", "text-amber-400");
+        
+        cardPairsData.forEach(c => c.flipped = true);
+        renderCardGrid();
+
+        setTimeout(() => {
+          cardPairsData.forEach(c => c.flipped = false);
+          lockCardBoard = false;
+          renderCardGrid();
+          addLog("記憶光影消失，卡牌重置覆蓋！開始匹配。", "text-slate-400");
+        }, 2500);
+      }
+    }
+
+    function renderCardGrid() {
+      const grid = document.getElementById('cardGrid');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      cardPairsData.forEach((card) => {
+        const cardEl = document.createElement('div');
+        cardEl.className = `aspect-square rounded-lg flex items-center justify-center text-2xl transition duration-300 border cursor-pointer ${
+          card.flipped || card.matched
+            ? 'bg-emerald-950/40 border-emerald-500 text-white transform rotate-y-180'
+            : 'bg-slate-800 border-slate-700 hover:border-slate-500 hover:bg-slate-750'
+        }`;
+
+        cardEl.innerHTML = card.flipped || card.matched
+          ? `<span>${card.symbol}</span>`
+          : `<span class="text-xs text-slate-500 font-bold tech-font">⚡</span>`;
+
+        cardEl.onclick = () => handleCardClick(card.id);
+        grid.appendChild(cardEl);
+      });
+    }
+
+    function handleCardClick(id) {
+      if (lockCardBoard) return;
+      const card = cardPairsData[id];
+      if (card.flipped || card.matched) return;
+
+      AudioEngine.playReveal();
+      card.flipped = true;
+      flippedCards.push(card);
+      renderCardGrid();
+
+      if (flippedCards.length === 2) {
+        lockCardBoard = true;
+        const [c1, c2] = flippedCards;
+        
+        if (c1.symbol === c2.symbol) {
+          c1.matched = true;
+          c2.matched = true;
+          flippedCards = [];
+          lockCardBoard = false;
+          AudioEngine.playSuccess();
+          
+          let totalMatched = cardPairsData.filter(c => c.matched).length;
+          if (totalMatched === 16) {
+            addLog("備用能量細胞全數鏈結激活！", "text-emerald-400");
+            if (gameState.level4Mistakes === 0) {
+              unlockAchievement('ACH_BRAIN');
+            } else {
+              addLog(`通關完成，但在匹配過程中失誤了 ${gameState.level4Mistakes} 次，無法解鎖「量子大腦」成就。`, "text-slate-400");
+            }
+            setTimeout(() => loadLevel(5), 1500);
+          }
+        } else {
+          gameState.level4Mistakes++;
+          saveToLocalStorage();
+
+          setTimeout(() => {
+            c1.flipped = false;
+            c2.flipped = false;
+            flippedCards = [];
+            lockCardBoard = false;
+            AudioEngine.playFail();
+            renderCardGrid();
+          }, 1000);
+        }
+      }
+    }
+
+    // --- 第五關：最終重力核配對 (Deduction Logic - 徹底修復 Re-render 與動態線索選擇) ---
+    const CORE_COLORS = {
+      '紅': 'bg-rose-600 shadow-[0_0_12px_#e11d48] text-white',
+      '黃': 'bg-amber-500 shadow-[0_0_12px_#f59e0b] text-slate-950',
+      '藍': 'bg-blue-600 shadow-[0_0_12px_#2563eb] text-white',
+      '綠': 'bg-emerald-600 shadow-[0_0_12px_#059669] text-white'
+    };
+
+    function setupLevel5(container) {
+      // 1. 如果尚未抽選這局的隨機謎題，進行初始化
+      if (gameState.level5PuzzleIdx === undefined || gameState.level5PuzzleIdx === -1) {
+        // 隨機在 5 種安全協議題庫中挑選一組
+        gameState.level5PuzzleIdx = Math.floor(Math.random() * LEVEL5_PUZZLES.length);
+        // 設定本題對應的打亂初始配列
+        gameState.level5Order = [...LEVEL5_PUZZLES[gameState.level5PuzzleIdx].startOrder];
+        saveToLocalStorage();
+      }
+
+      const puzzleIdx = gameState.level5PuzzleIdx;
+      const puzzleData = LEVEL5_PUZZLES[puzzleIdx];
+
+      const wrapper = document.createElement('div');
+      wrapper.className = "flex flex-col items-center gap-6 w-full";
+
+      // 渲染動態對應協議線索日誌
+      const logBox = document.createElement('div');
+      logBox.className = "text-xs space-y-1.5 p-4 bg-slate-950 border border-slate-900 rounded-lg max-w-sm text-slate-300 w-full";
+      logBox.innerHTML = puzzleData.clues;
+      wrapper.appendChild(logBox);
+
+      // 量子插槽容器
+      const slots = document.createElement('div');
+      slots.className = "flex gap-3 sm:gap-4 justify-center items-center my-4";
+
+      for (let i = 0; i < 4; i++) {
+        const slotWrapper = document.createElement('div');
+        slotWrapper.className = "flex flex-col items-center gap-2";
+
+        const label = document.createElement('span');
+        label.className = "text-[10px] sm:text-xs text-slate-500 font-bold tech-font";
+        label.innerText = `SLOT-0${i+1}`;
+
+        const color = gameState.level5Order[i];
+        const block = document.createElement('button');
+        block.className = `w-12 h-12 sm:w-14 sm:h-14 rounded-xl font-black text-base sm:text-lg transition flex items-center justify-center cursor-pointer active:scale-90 ${CORE_COLORS[color]}`;
+        block.innerText = color;
+        block.onclick = () => handleCoreSwap(i);
+
+        slotWrapper.appendChild(label);
+        slotWrapper.appendChild(block);
+        slots.appendChild(slotWrapper);
+      }
+      wrapper.appendChild(slots);
+
+      const hintText = document.createElement('p');
+      hintText.className = "text-xs text-slate-400 text-center";
+      hintText.innerText = "💡 點擊任兩顆量子核心即可「左右調換位置」。";
+      wrapper.appendChild(hintText);
+
+      container.appendChild(wrapper);
+
+      let selectedCoreIdx = null;
+
+      function handleCoreSwap(index) {
+        if (selectedCoreIdx === null) {
+          selectedCoreIdx = index;
+          AudioEngine.playBeep(450, 'sine', 0.05, 0.05);
+          slots.children[index].children[1].classList.add('ring-4', 'ring-white/80');
+        } else {
+          if (selectedCoreIdx !== index) {
+            const temp = gameState.level5Order[selectedCoreIdx];
+            gameState.level5Order[selectedCoreIdx] = gameState.level5Order[index];
+            gameState.level5Order[index] = temp;
+            AudioEngine.playBeep(550, 'sine', 0.08, 0.05);
+            saveToLocalStorage();
+          }
+          selectedCoreIdx = null;
+          setupLevel5(container); // 完美重新渲染，不重置隨機謎題
+        }
+      }
+
+      // 驗證按鈕：依據動態抽選謎題解答進行比對
+      const actionBtn = document.getElementById('actionBtn');
+      actionBtn.innerText = "驗證重力配列 & 逃脫";
+      actionBtn.onclick = () => {
+        if (isLogicCorrect()) {
+          AudioEngine.playSuccess();
+          addLog("最終重力矩陣配列正確！時空穩定引擎完全重置。", "text-emerald-400");
+          triggerEnding(true);
+        } else {
+          AudioEngine.playFail();
+          addLog("核心磁場紊亂！安全系統拒絕配列，請重新核對日誌邏輯。", "text-rose-500");
+        }
+      };
+    }
+
+    function isLogicCorrect() {
+      const puzzleIdx = gameState.level5PuzzleIdx !== undefined && gameState.level5PuzzleIdx !== -1 ? gameState.level5PuzzleIdx : 0;
+      const targetAns = LEVEL5_PUZZLES[puzzleIdx].answer;
+      return gameState.level5Order.join('') === targetAns;
+    }
+
+    // -----------------------------------------------------
+    // 8. 結局與重置處理 (修正深拷貝)
+    // -----------------------------------------------------
+    function triggerEnding(isSuccess) {
+      clearInterval(gameInterval);
+      gameState.level = 6;
+      saveToLocalStorage();
+
+      AudioEngine.stopBGM();
+
+      document.getElementById('endOverlay').classList.remove('hidden');
+
+      const titleEl = document.getElementById('endingTitle');
+      const descEl = document.getElementById('endingDescription');
+      const badgeEl = document.getElementById('endingBadge');
+
+      const min = Math.floor(gameState.timeRemaining / 60);
+      const sec = gameState.timeRemaining % 60;
+      const formattedTime = `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+
+      document.getElementById('finalTime').innerText = formattedTime;
+      document.getElementById('finalHints').innerText = `${gameState.hintsUsed} 次`;
+      
+      const gadgetMap = { scanner: '時空掃描儀', decrypter: '密碼解碼器', booster: '記憶增強劑' };
+      document.getElementById('finalGadget').innerText = gadgetMap[gameState.selectedGadget];
+      document.getElementById('finalAchievements').innerText = `${gameState.achievements.length} / 6`;
+
+      if (isSuccess) {
+        if (gameState.timeRemaining > 480 && gameState.hintsUsed === 0) {
+          titleEl.innerText = "完美結局：時空主宰者";
+          descEl.innerText = `你在強大的量子磁暴侵襲下，不僅完美推理出全部核心電路，甚至從未藉由時空通信尋求總部提示。時間的奇點在你面前屈服，你成為了支配萬千宇宙的特務時空領主。`;
+          badgeEl.className = "inline-block px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded text-xs mt-2 font-bold border border-emerald-500/20";
+          badgeEl.innerText = "🏆 PERFECT CHRONOS MASTER";
+          
+          unlockAchievement('ACH_ESCAPE_PERFECT');
+          AudioEngine.playSuccess();
+        } else {
+          titleEl.innerText = "普通結局：重回現實";
+          descEl.innerText = `歷經重重驚險，你在穩定裝置啟動的最後一毫秒撲出了實驗室。背後的核心塌縮化作耀眼白光，幸運的是，你回到了 2026 年溫暖祥和的現實生活。`;
+          badgeEl.className = "inline-block px-3 py-1 bg-cyan-500/10 text-cyan-400 rounded text-xs mt-2 font-bold border border-cyan-500/20";
+          badgeEl.innerText = "🎉 SUCCESSFUL ESCAPE";
+          AudioEngine.playSuccess();
+        }
+        
+        submitScoreToDatabase();
+      } else {
+        titleEl.innerText = "悲慘結局：迷失永恆";
+        descEl.innerText = `時間倒數歸零...。重力核徹底坍塌，整個時空研究所被扯入混亂無序的永恆夾縫。你在無盡的維度碎塊中迷失，不斷重複著尋找線索的那一天...`;
+        badgeEl.className = "inline-block px-3 py-1 bg-rose-500/10 text-rose-400 rounded text-xs mt-2 font-bold border border-rose-500/20";
+        badgeEl.innerText = "💀 TIME DIAL PARADOX";
+        AudioEngine.playFail();
+      }
+    }
+
+    window.restartGame = function() {
+      localStorage.removeItem('escape_room_save_state');
+      gameState = JSON.parse(JSON.stringify(INITIAL_STATE));
+      
+      document.getElementById('endOverlay').classList.add('hidden');
+      document.getElementById('startOverlay').classList.remove('hidden');
+      checkLocalStorageSave();
+    };
+
+    // -----------------------------------------------------
+    // 9. 提示系統控制 (重構關卡專屬配額限制 & 支援動態第5關專屬提示)
+    // -----------------------------------------------------
+    document.getElementById('hintBtn').onclick = () => {
+      const lv = gameState.level;
+      const config = LEVEL_DATA[lv];
+      if (!config) return;
+
+      if (!gameState.hintsUsedPerLevel) {
+        gameState.hintsUsedPerLevel = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      }
+
+      if (gameState.hintsUsedPerLevel[lv] >= 2) {
+        document.getElementById('hintText').innerText = "通信解析配額已用盡！請發揮您作為特工的極致智慧來克服難關。";
+        document.getElementById('hintModal').classList.remove('hidden');
+        return;
+      }
+
+      gameState.hintsUsedPerLevel[lv]++;
+      gameState.hintsUsed++;
+      saveToLocalStorage();
+      updateHintsButtonUI();
+
+      const currentLevelHintsUsed = gameState.hintsUsedPerLevel[lv];
+      
+      // 動態判定：如果是第 5 關，提示內容取自當前抽選題目的數據，否則取 LEVEL_DATA 的配置
+      let hintText = "";
+      if (lv === 5) {
+        const puzzleIdx = gameState.level5PuzzleIdx !== undefined && gameState.level5PuzzleIdx !== -1 ? gameState.level5PuzzleIdx : 0;
+        hintText = currentLevelHintsUsed === 1 ? LEVEL5_PUZZLES[puzzleIdx].hint1 : LEVEL5_PUZZLES[puzzleIdx].hint2;
+      } else {
+        hintText = currentLevelHintsUsed === 1 ? config.hint1 : config.hint2;
+      }
+
+      document.getElementById('hintText').innerText = hintText;
+      document.getElementById('hintModal').classList.remove('hidden');
+
+      addLog(`使用提示 (本關已用: ${currentLevelHintsUsed}/2 次，總計: ${gameState.hintsUsed} 次)...`, "text-amber-500");
+      AudioEngine.playBeep(400, 'triangle', 0.2, 0.1);
+    };
+
+    window.closeHintModal = function() {
+      document.getElementById('hintModal').classList.add('hidden');
+    };
+
+    // 音效切換
+    document.getElementById('toggleAudioBtn').onclick = () => {
+      audioMuted = !audioMuted;
+      const icon = document.getElementById('audioIcon');
+      if (audioMuted) {
+        icon.innerHTML = `<path fill-rule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.414-1.414L12.414 11H12v-.414L3.707 2.293zM10 16a1 1 0 01-1.707-.707L4.586 12H2a1 1 0 01-1-1V9a1 1 0 011-1h2.586l1.293-1.293L10 12.414V16zM11.586 11H12V7h-.586l1.586-1.586A1 1 0 0114.707 6l2.293 2.293a1 1 0 010 1.414L11.586 11z" clip-rule="evenodd" />`;
+        AudioEngine.stopBGM();
+      } else {
+        icon.innerHTML = `<path fill-rule="evenodd" d="M9.383 3.076a1 1 0 011 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.693-3.693a1 1 0 011.104-.231zM13.586 5.586a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L15.172 10l-1.586-1.586a1 1 0 010-1.414z" clip-rule="evenodd" />`;
+        AudioEngine.startBGM();
+      }
+    };
+
+    // -----------------------------------------------------
+    // 10. 初始化與事件綁定
+    // -----------------------------------------------------
+    document.getElementById('startGameBtn').onclick = () => {
+      const nameInput = document.getElementById('playerNameInput').value.trim();
+      
+      gameState = JSON.parse(JSON.stringify(INITIAL_STATE));
+      gameState.playerName = nameInput || "時空特工";
+      gameState.level = 1;
+      gameState.timeRemaining = 900;
+      
+      const logs = document.getElementById('pdaLogs');
+      if (logs) logs.innerHTML = '';
+
+      document.getElementById('startOverlay').classList.add('hidden');
+      
+      AudioEngine.startBGM();
+      unlockAchievement('ACH_START');
+      addLog(`歡迎，特工 [${gameState.playerName}] 進入時空特區。`, "text-emerald-400");
+      
+      loadLevel(1);
+      startTimer();
+    };
+
+    document.getElementById('resumeGameBtn').onclick = () => {
+      const saved = localStorage.getItem('escape_room_save_state');
+      if (saved) {
+        try {
+          gameState = JSON.parse(saved);
+          document.getElementById('startOverlay').classList.add('hidden');
+          AudioEngine.startBGM();
+          
+          addLog(`備份進度加載完成！特工 [${gameState.playerName}] 重新回到時空軌道。`, "text-cyan-400");
+          
+          renderAchievements();
+          loadLevel(gameState.level);
+          startTimer();
+        } catch(e) {
+          console.error("還原備份失敗:", e);
+        }
+      }
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initFirebase();
+      checkLocalStorageSave();
+      renderAchievements();
+    });
+
+  </script>
+</body>
+</html>
