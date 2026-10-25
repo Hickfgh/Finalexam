@@ -1,0 +1,34 @@
+# 色票預約所
+
+Windows PowerShell 5.1 以上版本即可執行，不需安裝套件。
+
+## 啟動
+
+在此資料夾開啟 PowerShell，執行：
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+.\server.ps1
+```
+
+開啟 `http://localhost:8765/admin`，第一次使用時直接建立管理帳號和密碼。帳號只能註冊一次；新密碼至少 12 個字元。之後從同一頁登入，登入後可在頁面下方修改密碼。管理帳密以雜湊保存於 `data/admin-credentials.json`，預約資料保存於 `data/reservations.json`；重啟伺服器後兩者都會保留。
+
+## Gmail 通知
+
+登入後台，在「Gmail 預約通知」輸入一個通知 Gmail 及其 Google 應用程式密碼，勾選啟用後按「儲存並寄送測試信」。該 Gmail 同時寄出並接收通知。應用程式密碼需先開啟 Google 兩步驟驗證，再至 [Google 應用程式密碼](https://myaccount.google.com/apppasswords)建立；不可使用 Gmail 一般登入密碼。密碼以 Windows DPAPI 加密保存。所有透過預約 API 成功登記的色票都會寄通知；若寄信失敗，預約仍會保存，詳細錯誤會記在伺服器終端。
+
+## 工作人員登入
+
+管理者登入後，從 Gmail 設定區的「設定工作人員帳號」建立或更新一組共用帳密。工作人員從 `http://localhost:8765/staff` 登入，只能查看預約資料；頁面不提供註冊，只有管理者可設定或更新帳密。工作人員忘記帳密時可按「通知管理者重設」，之後由管理者更新共用帳密。
+
+## 客戶帳號與預約
+
+客戶從首頁點選色票後會前往 `/account`。建立帳號需先用 Email 驗證碼驗證信箱；預約必須登入，每個 Email 僅能有一筆有效預約。客戶與工作人員都可勾選保持登入，token 以 Windows DPAPI 加密保存 30 天，伺服器重啟後仍有效；登出、密碼重設或管理者更新員工密碼會撤銷舊 token。未勾選時只在目前分頁保持登入。客戶可在帳號頁用 Email 驗證碼重設忘記的密碼。
+
+客戶登入 `/account` 後可在「我的預約」直接取消，不需寄送取消 Email；管理者也可在後台取消。取消後色票與該帳號 Email 名額會重新開放。客戶註冊、忘記密碼及變更 Email 仍需要 Gmail 驗證信能正常寄送。
+
+## 多人使用
+
+所有訪客必須連到同一個已啟動的伺服器網址，預約才會共用。部署到可供訪客連線的 Windows 主機時，以系統管理員身分為所需的網路網址設定 Windows HTTP URL reservation，再使用 `-ListenAddress 'http://+'` 監聽網路連線。請搭配 HTTPS 反向代理公開網站；不要將 `data` 資料夾公開。
+
+後台提供預約資料檢視與 CSV 匯出。色票一經登記即不可再次預約；刪除資料檔中的該筆紀錄後，該色票才會重新開放。
